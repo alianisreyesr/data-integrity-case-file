@@ -34,8 +34,9 @@ services:
 
   ollama:
     image: ollama/ollama:latest
+    # Bind only to loopback on the host — not reachable from other LAN hosts.
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped

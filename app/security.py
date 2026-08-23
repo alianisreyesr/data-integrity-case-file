@@ -1,9 +1,10 @@
-"""API key authentication and in-memory rate limiting.
+"""API key authentication, rate limiting, and security headers.
 
 Designed for the portfolio prototype:
-- X-API-Key required on all routes except /health
+- X-API-Key required on all routes except /health (and OpenAPI docs)
 - Constant-time key comparison
 - Per-client sliding window rate limits (stricter on AI endpoints)
+- Baseline HTTP security headers on every response
 """
 from __future__ import annotations
 
@@ -22,18 +23,15 @@ from starlette.responses import JSONResponse, Response
 API_KEY = os.getenv("API_KEY", "dev-api-key-change-me")
 API_KEY_HEADER = "X-API-Key"
 
-# requests per window (seconds)
 RATE_LIMIT_DEFAULT = int(os.getenv("RATE_LIMIT_DEFAULT", "120"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 RATE_LIMIT_AI = int(os.getenv("RATE_LIMIT_AI", "10"))
 RATE_LIMIT_AI_WINDOW = int(os.getenv("RATE_LIMIT_AI_WINDOW_SECONDS", "60"))
 
-# Paths that skip API key (readiness probes only)
 PUBLIC_PATHS = frozenset({"/health", "/docs", "/openapi.json", "/redoc"})
 
 
 def _client_id(request: Request) -> str:
-    """Prefer X-Forwarded-For first hop, else direct client host."""
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -42,10 +40,7 @@ def _client_id(request: Request) -> str:
     return "unknown"
 
 
-# ── API Key dependency ───────────────────────────────────────────────────────
-
 async def require_api_key(x_api_key: Optional[str] = Header(None, alias=API_KEY_HEADER)) -> str:
-    """FastAPI dependency: reject requests without a valid API key."""
     if not x_api_key or not secrets.compare_digest(x_api_key, API_KEY):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -55,8 +50,6 @@ async def require_api_key(x_api_key: Optional[str] = Header(None, alias=API_KEY_
     return x_api_key
 
 
-# ── Rate limiter (sliding window, process-local) ─────────────────────────────
-
 class SlidingWindowLimiter:
     """In-memory sliding-window rate limiter. Suitable for single-process demo."""
 
@@ -64,9 +57,6 @@ class SlidingWindowLimiter:
         self._hits: Dict[str, Deque[float]] = defaultdict(deque)
 
     def allow(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int, int]:
-        """
-        Returns (allowed, remaining, retry_after_seconds).
-        """
         now = time.monotonic()
         window_start = now - window_seconds
         q = self._hits[key]
@@ -123,8 +113,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
-    """Enforce X-API-Key on non-public paths (covers all routers uniformly)."""
-
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path = request.url.path
         if (
@@ -143,3 +131,24 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
                 headers={"WWW-Authenticate": "ApiKey"},
             )
         return await call_next(request)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Baseline browser/security headers for a local API prototype."""
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Permissions-Policy",
+            "camera=(), microphone=(), geolocation=()",
+        )
+        # API-oriented CSP: no scripts expected from this origin for JSON clients
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'none'; frame-ancestors 'none'",
+        )
+        response.headers.setdefault("X-Data-Boundary", "synthetic-only")
+        return response
