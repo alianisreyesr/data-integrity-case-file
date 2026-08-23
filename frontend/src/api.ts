@@ -9,6 +9,8 @@ import type {
   CapaCreate,
   AuditEntry,
   Summary,
+  AiSuggestionOut,
+  AiSuggestionReviewCreate,
 } from "./types";
 
 const BASE = "/api";
@@ -64,4 +66,17 @@ export const api = {
     }),
   auditLog: (caseId?: number) =>
     request<AuditEntry[]>(`/audit-log${caseId ? `?case_id=${caseId}` : ""}`),
+  generateAiSuggestions: (caseId: number, actor: string) =>
+    request<AiSuggestionOut>(`/cases/${caseId}/ai-suggest-gaps`, {
+      method: "POST",
+      headers: { "x-actor": actor },
+    }),
+  listAiSuggestions: (caseId: number) =>
+    request<AiSuggestionOut[]>(`/cases/${caseId}/ai-suggestions`),
+  reviewAiSuggestion: (suggestionId: number, body: AiSuggestionReviewCreate, actor: string) =>
+    request<AiSuggestionOut>(`/ai-suggestions/${suggestionId}/review`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "x-actor": actor },
+    }),
 };

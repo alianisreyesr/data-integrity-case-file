@@ -114,3 +114,28 @@ export interface Summary {
   open_capas: number;
   data_boundary: string;
 }
+
+export interface AiGapSuggestion {
+  attribute: string;
+  risk_level: string;
+  rationale: string;
+}
+
+export interface AiSuggestionOut {
+  id: number;
+  case_id: number;
+  model_name: string;
+  model_provider: string;
+  prompt_version: string;
+  suggestions: AiGapSuggestion[];
+  limitations: string;
+  generated_at: string;
+  human_action: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+}
+
+export interface AiSuggestionReviewCreate {
+  human_action: "accepted" | "rejected" | "modified";
+  reviewed_by: string;
+}
