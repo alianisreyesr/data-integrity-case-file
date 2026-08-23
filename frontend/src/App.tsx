@@ -1,4 +1,5 @@
 import { useState } from "react";
+import AiStatus from "./components/AiStatus";
 import DataBoundaryBanner from "./components/DataBoundaryBanner";
 import Dashboard from "./components/Dashboard";
 import CaseList from "./components/CaseList";
@@ -43,7 +44,10 @@ export default function App() {
         Skip to main content
       </a>
       <header className="topbar">
-        <h1>Data Integrity Case File</h1>
+        <div>
+          <h1>Data Integrity Case File</h1>
+          <AiStatus />
+        </div>
         <nav className="nav" aria-label="Main navigation">
           {(Object.keys(TAB_LABELS) as Tab[]).map((key) => (
             <button

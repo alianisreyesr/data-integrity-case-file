@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+
+from .ai_status import router as ai_status_router
 from .database import init_db
 from .router import router
 
@@ -10,8 +12,9 @@ app = FastAPI(
 
 
 @app.on_event("startup")
-def startup():
+def startup() -> None:
     init_db()
 
 
 app.include_router(router)
+app.include_router(ai_status_router)
