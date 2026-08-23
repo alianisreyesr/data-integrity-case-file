@@ -3,15 +3,16 @@ import json
 import string, random
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Query
 from .database import get_connection
 from .models import (
-    CaseCreate, CaseOut,
+    CaseCreate, CaseOut, CaseStatusUpdate,
     AlcoaGapCreate, AlcoaGapOut,
     EvidenceCreate, EvidenceOut,
-    CapaCreate, CapaOut,
+    CapaCreate, CapaOut, CapaStatusUpdate,
     AuditEntry, SummaryOut,
     AiSuggestionOut, AiSuggestionReviewCreate,
+    CASE_STATUSES, CASE_STATUS_TRANSITIONS, CAPA_STATUS_TRANSITIONS,
 )
 from .ai import generate_gap_suggestions, hash_response, AiUnavailableError, OLLAMA_MODEL, PROMPT_VERSION
 
@@ -31,6 +32,20 @@ def _audit(conn, actor: str, action: str, case_id: Optional[int] = None, detail:
         "INSERT INTO audit_log (case_id, actor, action, detail, created_at) VALUES (?,?,?,?,?)",
         (case_id, actor, action, detail, _now())
     )
+
+
+def _require_case(conn, case_id: int):
+    row = conn.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Case not found")
+    return row
+
+
+def _require_open_case(conn, case_id: int):
+    row = _require_case(conn, case_id)
+    if row["status"] == "closed":
+        raise HTTPException(409, "Case is closed; reopen is not supported in this prototype")
+    return row
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -63,7 +78,7 @@ def summary():
 # ── Cases ─────────────────────────────────────────────────────────────────────
 
 @router.get("/cases", response_model=List[CaseOut])
-def list_cases(status: Optional[str] = None):
+def list_cases(status: Optional[CASE_STATUSES] = Query(None)):
     conn = get_connection()
     if status:
         rows = conn.execute("SELECT * FROM cases WHERE status=? ORDER BY id DESC", (status,)).fetchall()
@@ -100,11 +115,53 @@ def get_case(case_id: int):
     return dict(row)
 
 
+@router.patch("/cases/{case_id}/status", response_model=CaseOut)
+def update_case_status(case_id: int, body: CaseStatusUpdate, x_actor: str = Header(...)):
+    conn = get_connection()
+    try:
+        row = _require_case(conn, case_id)
+        current = row["status"]
+        target = body.status
+        if current == target:
+            return dict(row)
+        allowed = CASE_STATUS_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            raise HTTPException(
+                409,
+                f"Invalid transition from '{current}' to '{target}'. Allowed: {sorted(allowed) or 'none (terminal)'}",
+            )
+        now = _now()
+        closed_at = now if target == "closed" else None
+        with conn:
+            if target == "closed":
+                conn.execute(
+                    "UPDATE cases SET status=?, closed_at=? WHERE id=?",
+                    (target, closed_at, case_id),
+                )
+            else:
+                conn.execute(
+                    "UPDATE cases SET status=?, closed_at=NULL WHERE id=?",
+                    (target, case_id),
+                )
+            _audit(conn, x_actor, "case_status_updated", case_id, f"{current}->{target}")
+        updated = conn.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
+        return dict(updated)
+    finally:
+        conn.close()
+
+
+@router.post("/cases/{case_id}/close", response_model=CaseOut)
+def close_case(case_id: int, x_actor: str = Header(...)):
+    """Formal QA closure — sets status=closed and closed_at."""
+    return update_case_status(case_id, CaseStatusUpdate(status="closed"), x_actor)
+
+
 # ── ALCOA+ Gaps ───────────────────────────────────────────────────────────────
 
 @router.get("/cases/{case_id}/alcoa-gaps", response_model=List[AlcoaGapOut])
 def list_gaps(case_id: int):
     conn = get_connection()
+    _require_case(conn, case_id)
     rows = conn.execute("SELECT * FROM alcoa_gaps WHERE case_id=? ORDER BY id", (case_id,)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -113,7 +170,7 @@ def list_gaps(case_id: int):
 @router.post("/cases/{case_id}/alcoa-gaps", response_model=AlcoaGapOut, status_code=201)
 def add_gap(case_id: int, body: AlcoaGapCreate, x_actor: str = Header(...)):
     conn = get_connection()
-    _require_case(conn, case_id)
+    _require_open_case(conn, case_id)
     now = _now()
     with conn:
         conn.execute(
@@ -127,11 +184,12 @@ def add_gap(case_id: int, body: AlcoaGapCreate, x_actor: str = Header(...)):
     return dict(row)
 
 
-# ── Evidence ───────────────────────────────────────────────────────────────────
+# ── Evidence ──────────────────────────────────────────────────────────────────
 
 @router.get("/cases/{case_id}/evidence", response_model=List[EvidenceOut])
 def list_evidence(case_id: int):
     conn = get_connection()
+    _require_case(conn, case_id)
     rows = conn.execute("SELECT * FROM evidence_log WHERE case_id=? ORDER BY id", (case_id,)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -140,7 +198,7 @@ def list_evidence(case_id: int):
 @router.post("/cases/{case_id}/evidence", response_model=EvidenceOut, status_code=201)
 def add_evidence(case_id: int, body: EvidenceCreate, x_actor: str = Header(...)):
     conn = get_connection()
-    _require_case(conn, case_id)
+    _require_open_case(conn, case_id)
     now = _now()
     with conn:
         conn.execute(
@@ -159,6 +217,7 @@ def add_evidence(case_id: int, body: EvidenceCreate, x_actor: str = Header(...))
 @router.get("/cases/{case_id}/capas", response_model=List[CapaOut])
 def list_capas(case_id: int):
     conn = get_connection()
+    _require_case(conn, case_id)
     rows = conn.execute("SELECT * FROM capas WHERE case_id=? ORDER BY id", (case_id,)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -167,7 +226,7 @@ def list_capas(case_id: int):
 @router.post("/cases/{case_id}/capas", response_model=CapaOut, status_code=201)
 def add_capa(case_id: int, body: CapaCreate, x_actor: str = Header(...)):
     conn = get_connection()
-    _require_case(conn, case_id)
+    _require_open_case(conn, case_id)
     ref = _ref("CAPA")
     now = _now()
     with conn:
@@ -180,6 +239,35 @@ def add_capa(case_id: int, body: CapaCreate, x_actor: str = Header(...)):
     row = conn.execute("SELECT * FROM capas WHERE id=?", (cid,)).fetchone()
     conn.close()
     return dict(row)
+
+
+@router.patch("/cases/{case_id}/capas/{capa_id}/status", response_model=CapaOut)
+def update_capa_status(case_id: int, capa_id: int, body: CapaStatusUpdate, x_actor: str = Header(...)):
+    conn = get_connection()
+    try:
+        _require_open_case(conn, case_id)
+        row = conn.execute(
+            "SELECT * FROM capas WHERE id=? AND case_id=?", (capa_id, case_id)
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "CAPA not found for this case")
+        current = row["status"]
+        target = body.status
+        if current == target:
+            return dict(row)
+        allowed = CAPA_STATUS_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            raise HTTPException(
+                409,
+                f"Invalid CAPA transition from '{current}' to '{target}'. Allowed: {sorted(allowed) or 'none'}",
+            )
+        with conn:
+            conn.execute("UPDATE capas SET status=? WHERE id=?", (target, capa_id))
+            _audit(conn, x_actor, "capa_status_updated", case_id, f"capa={row['capa_ref']} {current}->{target}")
+        updated = conn.execute("SELECT * FROM capas WHERE id=?", (capa_id,)).fetchone()
+        return dict(updated)
+    finally:
+        conn.close()
 
 
 # ── Audit Log ─────────────────────────────────────────────────────────────────
@@ -195,7 +283,7 @@ def audit_log(case_id: Optional[int] = None):
     return [dict(r) for r in rows]
 
 
-# ── AI-assisted ALCOA+ gap triage (assistive only) ──────────────────────────────────────
+# ── AI-assisted ALCOA+ gap triage (assistive only) ────────────────────────────
 
 def _serialize_ai_suggestion(row) -> dict:
     payload = json.loads(row["response_json"])
@@ -218,8 +306,7 @@ def _serialize_ai_suggestion(row) -> dict:
 def ai_suggest_gaps(case_id: int, x_actor: str = Header(...)):
     conn = get_connection()
     try:
-        _require_case(conn, case_id)
-        case_row = conn.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
+        case_row = _require_open_case(conn, case_id)
         try:
             result = generate_gap_suggestions(case_row["title"], case_row["system"], case_row["signal_type"])
         except AiUnavailableError as exc:
@@ -262,6 +349,7 @@ def review_ai_suggestion(suggestion_id: int, body: AiSuggestionReviewCreate, x_a
         row = conn.execute("SELECT * FROM ai_suggestions WHERE id=?", (suggestion_id,)).fetchone()
         if not row:
             raise HTTPException(404, "AI suggestion not found")
+        _require_open_case(conn, row["case_id"])
         now = _now()
         with conn:
             conn.execute(
@@ -273,10 +361,3 @@ def review_ai_suggestion(suggestion_id: int, body: AiSuggestionReviewCreate, x_a
         return _serialize_ai_suggestion(updated)
     finally:
         conn.close()
-
-
-# ── Helper ────────────────────────────────────────────────────────────────────
-
-def _require_case(conn, case_id: int):
-    if not conn.execute("SELECT 1 FROM cases WHERE id=?", (case_id,)).fetchone():
-        raise HTTPException(404, "Case not found")

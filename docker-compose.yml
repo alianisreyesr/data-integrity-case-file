@@ -21,12 +21,12 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_KEY: ${API_KEY:-dev-api-key-change-me}
     ports:
-      - "5173:5173"
-    environment:
-      - VITE_PROXY_TARGET=http://api:8000
-      - VITE_API_KEY=${API_KEY:-dev-api-key-change-me}
+      - "8080:80"
     depends_on:
       api:
         condition: service_started
@@ -34,7 +34,6 @@ services:
 
   ollama:
     image: ollama/ollama:latest
-    # Bind only to loopback on the host — not reachable from other LAN hosts.
     ports:
       - "127.0.0.1:11434:11434"
     volumes:

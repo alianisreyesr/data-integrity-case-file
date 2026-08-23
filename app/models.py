@@ -25,6 +25,22 @@ CAPA_STATUSES = Literal["open", "in_progress", "verified", "closed"]
 
 AI_HUMAN_ACTIONS = Literal["accepted", "rejected", "modified"]
 
+# Allowed forward transitions (portfolio workflow; closed is terminal)
+CASE_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    "intake": {"alcoa_assessment", "investigation", "closed"},
+    "alcoa_assessment": {"investigation", "capa_formulation", "closed"},
+    "investigation": {"capa_formulation", "alcoa_assessment", "closed"},
+    "capa_formulation": {"investigation", "closed"},
+    "closed": set(),
+}
+
+CAPA_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    "open": {"in_progress", "closed"},
+    "in_progress": {"verified", "closed", "open"},
+    "verified": {"closed", "in_progress"},
+    "closed": set(),
+}
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -37,6 +53,10 @@ class CaseCreate(BaseModel):
     system: str = Field(..., min_length=2, max_length=100)
     signal_type: SIGNAL_TYPES
     opened_by: str = Field(..., min_length=2, max_length=80)
+
+
+class CaseStatusUpdate(BaseModel):
+    status: CASE_STATUSES
 
 
 class CaseOut(BaseModel):
@@ -70,7 +90,7 @@ class AlcoaGapOut(BaseModel):
     assessed_at: str
 
 
-# ── Evidence ──────────────────────────────────────────────────────────────────────
+# ── Evidence ──────────────────────────────────────────────────────────────────
 
 class EvidenceCreate(BaseModel):
     evidence_type: Literal[
@@ -97,6 +117,10 @@ class CapaCreate(BaseModel):
     description: str = Field(..., min_length=10, max_length=1000)
     owner: str = Field(..., min_length=2, max_length=80)
     due_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class CapaStatusUpdate(BaseModel):
+    status: CAPA_STATUSES
 
 
 class CapaOut(BaseModel):
@@ -134,7 +158,7 @@ class SummaryOut(BaseModel):
     data_boundary: str = "All records are synthetic and fictional."
 
 
-# ── AI Suggestions (assistive only — human review required) ──────────────────────────
+# ── AI Suggestions (assistive only — human review required) ───────────────────
 
 class AiGapSuggestionOut(BaseModel):
     attribute: str
