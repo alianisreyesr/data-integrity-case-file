@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import string, random
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -10,7 +11,9 @@ from .models import (
     EvidenceCreate, EvidenceOut,
     CapaCreate, CapaOut,
     AuditEntry, SummaryOut,
+    AiSuggestionOut, AiSuggestionReviewCreate,
 )
+from .ai import generate_gap_suggestions, hash_response, AiUnavailableError, OLLAMA_MODEL, PROMPT_VERSION
 
 router = APIRouter()
 
@@ -124,7 +127,7 @@ def add_gap(case_id: int, body: AlcoaGapCreate, x_actor: str = Header(...)):
     return dict(row)
 
 
-# ── Evidence ──────────────────────────────────────────────────────────────────
+# ── Evidence ───────────────────────────────────────────────────────────────────
 
 @router.get("/cases/{case_id}/evidence", response_model=List[EvidenceOut])
 def list_evidence(case_id: int):
@@ -190,6 +193,86 @@ def audit_log(case_id: Optional[int] = None):
         rows = conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT 200").fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ── AI-assisted ALCOA+ gap triage (assistive only) ──────────────────────────────────────
+
+def _serialize_ai_suggestion(row) -> dict:
+    payload = json.loads(row["response_json"])
+    return {
+        "id": row["id"],
+        "case_id": row["case_id"],
+        "model_name": row["model_name"],
+        "model_provider": row["model_provider"],
+        "prompt_version": row["prompt_version"],
+        "suggestions": payload.get("suggestions", []),
+        "limitations": payload.get("limitations", ""),
+        "generated_at": row["generated_at"],
+        "human_action": row["human_action"],
+        "reviewed_by": row["reviewed_by"],
+        "reviewed_at": row["reviewed_at"],
+    }
+
+
+@router.post("/cases/{case_id}/ai-suggest-gaps", response_model=AiSuggestionOut, status_code=201)
+def ai_suggest_gaps(case_id: int, x_actor: str = Header(...)):
+    conn = get_connection()
+    try:
+        _require_case(conn, case_id)
+        case_row = conn.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
+        try:
+            result = generate_gap_suggestions(case_row["title"], case_row["system"], case_row["signal_type"])
+        except AiUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=f"AI assistant unavailable: {exc}")
+        payload = result.model_dump()
+        response_hash = hash_response(payload)
+        now = _now()
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO ai_suggestions
+                (case_id, model_name, model_provider, prompt_version, response_json, response_hash, generated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (case_id, OLLAMA_MODEL, "local_ollama", PROMPT_VERSION, json.dumps(payload), response_hash, now),
+            )
+            suggestion_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            _audit(conn, x_actor, "ai_suggestion_generated", case_id, f"model={OLLAMA_MODEL} hash={response_hash[:12]}")
+        row = conn.execute("SELECT * FROM ai_suggestions WHERE id=?", (suggestion_id,)).fetchone()
+        return _serialize_ai_suggestion(row)
+    finally:
+        conn.close()
+
+
+@router.get("/cases/{case_id}/ai-suggestions", response_model=List[AiSuggestionOut])
+def list_ai_suggestions(case_id: int):
+    conn = get_connection()
+    try:
+        _require_case(conn, case_id)
+        rows = conn.execute("SELECT * FROM ai_suggestions WHERE case_id=? ORDER BY id DESC", (case_id,)).fetchall()
+        return [_serialize_ai_suggestion(r) for r in rows]
+    finally:
+        conn.close()
+
+
+@router.post("/ai-suggestions/{suggestion_id}/review", response_model=AiSuggestionOut)
+def review_ai_suggestion(suggestion_id: int, body: AiSuggestionReviewCreate, x_actor: str = Header(...)):
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM ai_suggestions WHERE id=?", (suggestion_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "AI suggestion not found")
+        now = _now()
+        with conn:
+            conn.execute(
+                "UPDATE ai_suggestions SET human_action=?, reviewed_by=?, reviewed_at=? WHERE id=?",
+                (body.human_action, body.reviewed_by, now, suggestion_id),
+            )
+            _audit(conn, x_actor, "ai_suggestion_reviewed", row["case_id"], f"action={body.human_action}")
+        updated = conn.execute("SELECT * FROM ai_suggestions WHERE id=?", (suggestion_id,)).fetchone()
+        return _serialize_ai_suggestion(updated)
+    finally:
+        conn.close()
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────

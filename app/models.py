@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -22,6 +22,8 @@ CASE_STATUSES = Literal[
 
 CAPA_TYPES = Literal["corrective", "preventive"]
 CAPA_STATUSES = Literal["open", "in_progress", "verified", "closed"]
+
+AI_HUMAN_ACTIONS = Literal["accepted", "rejected", "modified"]
 
 
 def _now() -> str:
@@ -68,7 +70,7 @@ class AlcoaGapOut(BaseModel):
     assessed_at: str
 
 
-# ── Evidence ──────────────────────────────────────────────────────────────────
+# ── Evidence ──────────────────────────────────────────────────────────────────────
 
 class EvidenceCreate(BaseModel):
     evidence_type: Literal[
@@ -130,3 +132,30 @@ class SummaryOut(BaseModel):
     total_capas: int
     open_capas: int
     data_boundary: str = "All records are synthetic and fictional."
+
+
+# ── AI Suggestions (assistive only — human review required) ──────────────────────────
+
+class AiGapSuggestionOut(BaseModel):
+    attribute: str
+    risk_level: str
+    rationale: str
+
+
+class AiSuggestionOut(BaseModel):
+    id: int
+    case_id: int
+    model_name: str
+    model_provider: str
+    prompt_version: str
+    suggestions: List[AiGapSuggestionOut]
+    limitations: str
+    generated_at: str
+    human_action: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[str] = None
+
+
+class AiSuggestionReviewCreate(BaseModel):
+    human_action: AI_HUMAN_ACTIONS
+    reviewed_by: str = Field(..., min_length=2, max_length=80)

@@ -67,5 +67,19 @@ def init_db() -> None:
                 detail      TEXT,
                 created_at  TEXT    NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS ai_suggestions (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id         INTEGER NOT NULL REFERENCES cases(id),
+                model_name      TEXT    NOT NULL,
+                model_provider  TEXT    NOT NULL,
+                prompt_version  TEXT    NOT NULL,
+                response_json   TEXT    NOT NULL,
+                response_hash   TEXT    NOT NULL,
+                generated_at    TEXT    NOT NULL,
+                human_action    TEXT,
+                reviewed_by     TEXT,
+                reviewed_at     TEXT
+            );
         """)
     conn.close()
