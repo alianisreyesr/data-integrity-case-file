@@ -42,6 +42,35 @@ Designed to demonstrate fluency in FDA, MHRA, and PIC/S data integrity framework
 
 ---
 
+## Security (local demo)
+
+This is **not** production IAM. Controls are intentional for a portfolio prototype:
+
+| Control | Behavior |
+|---------|----------|
+| **API key** | Header `X-API-Key` required on all routes except `/health`, `/docs`, `/redoc`, `/openapi.json` |
+| **Default key** | `dev-api-key-change-me` — override with env `API_KEY` |
+| **Rate limit** | 120 req/min per client (default); AI suggest endpoint 10 req/min |
+| **Security headers** | `X-Frame-Options`, `X-Content-Type-Options`, CSP, `Referrer-Policy` |
+| **CORS** | Allowlist: `localhost:5173` / `127.0.0.1:5173` |
+| **Audit actor** | Mutations still require `X-Actor` for the application audit log |
+| **Ollama** | Published only on `127.0.0.1:11434` on the host |
+| **Container** | API image runs as non-root user `appuser` |
+
+```bash
+# Examples
+curl http://localhost:8000/health
+curl -H "X-API-Key: dev-api-key-change-me" http://localhost:8000/summary
+curl -H "X-API-Key: $API_KEY" -H "X-Actor: A.Reyes" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Demo case","system":"LIMS-01","signal_type":"audit_finding","opened_by":"A.Reyes"}' \
+  http://localhost:8000/cases
+```
+
+Env vars (API / Compose): `API_KEY`, `RATE_LIMIT_DEFAULT`, `RATE_LIMIT_WINDOW_SECONDS`, `RATE_LIMIT_AI`, `RATE_LIMIT_AI_WINDOW_SECONDS`.
+
+---
+
 ## Quick Start
 
 ### Option A — Docker Compose (recommended)
@@ -51,18 +80,18 @@ Designed to demonstrate fluency in FDA, MHRA, and PIC/S data integrity framework
 git clone https://github.com/alianisreyesr/data-integrity-case-file.git
 cd data-integrity-case-file
 
-# 2. Start all services (API + Ollama)
+# 2. Optional: set a non-default API key
+export API_KEY=dev-api-key-change-me
+
+# 3. Start all services (API + frontend + Ollama)
 docker compose up --build
 
-# 3. Pull the AI model (first run only — ~2 GB)
-docker compose exec ollama ollama pull llama3.2:3b
-
-# 4. Verify
+# 4. Verify (health is public; other routes need the key)
 curl http://localhost:8000/health
-curl http://localhost:8000/ai/status
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/ai/status
 ```
 
-> **Ollama note:** The `ollama` service starts automatically via Docker Compose. The model must be pulled once with step 3; it persists in the `ollama_data` volume on subsequent runs.
+> **Ollama note:** Model pull runs via the `ollama-init` one-shot service. Data persists in the `ollama_data` volume.
 
 ### Option B — Local Python (no Docker)
 
@@ -77,7 +106,7 @@ pip install -r requirements.txt
 # 3. Seed synthetic data
 python data/seed.py
 
-# 4. Run
+# 4. Run (optional: export API_KEY=...)
 uvicorn app.main:app --reload
 # API: http://localhost:8000
 # Docs: http://localhost:8000/docs
@@ -87,14 +116,16 @@ uvicorn app.main:app --reload
 
 ## API Endpoints
 
+All endpoints below except `GET /health` require **`X-API-Key`**. Write operations also require **`X-Actor`**.
+
 ### Core Workflow
 
 | Method | Path | Description |
 |--------|------|--------------|
-| `GET` | `/health` | Service health + data boundary reminder |
+| `GET` | `/health` | Service health + data boundary reminder (public) |
 | `GET` | `/summary` | Case counts, open gaps, CAPA stats |
 | `GET` | `/cases` | List all cases (filter by `?status=`) |
-| `POST` | `/cases` | Open a new DI case (`X-Actor` header required) |
+| `POST` | `/cases` | Open a new DI case |
 | `GET` | `/cases/{id}` | Get case detail |
 | `GET` | `/cases/{id}/alcoa-gaps` | List ALCOA+ gap assessments |
 | `POST` | `/cases/{id}/alcoa-gaps` | Record a gap finding |
@@ -109,7 +140,7 @@ uvicorn app.main:app --reload
 | Method | Path | Description |
 |--------|------|--------------|
 | `GET` | `/ai/status` | Ollama service + model availability check |
-| `POST` | `/cases/{id}/ai-suggest-gaps` | Generate ALCOA+ gap suggestions (local LLM) |
+| `POST` | `/cases/{id}/ai-suggest-gaps` | Generate ALCOA+ gap suggestions (local LLM; stricter rate limit) |
 | `GET` | `/cases/{id}/ai-suggestions` | List all AI suggestions for a case |
 | `POST` | `/ai-suggestions/{id}/review` | Accept / reject / modify full suggestion set |
 | `GET` | `/ai-suggestions/{id}/items` | List per-attribute suggestions with review status |
@@ -148,8 +179,9 @@ See [`docs/AI_ASSISTANT.md`](docs/AI_ASSISTANT.md) for the full design rationale
 ```
 data-integrity-case-file/
 ├── app/
-│   ├── main.py              # FastAPI app, startup, router registration
-│   ├── router.py            # All REST endpoints
+│   ├── main.py              # FastAPI app, lifespan, middleware, routers
+│   ├── security.py          # API key, rate limit, security headers
+│   ├── router.py            # Core REST endpoints
 │   ├── models.py            # Pydantic v2 request/response models
 │   ├── database.py          # SQLite connection + schema init (WAL mode)
 │   ├── ai.py                # Ollama client, prompt, response validation
@@ -159,16 +191,17 @@ data-integrity-case-file/
 │   └── seed.py              # Synthetic case data seeder
 ├── tests/
 │   ├── test_api.py          # Core workflow endpoint tests
+│   ├── test_security.py     # API key + rate limit tests
 │   ├── test_ai.py           # AI module unit tests
 │   ├── test_ai_contract.py  # JSON contract / schema tests
 │   └── test_ai_status.py    # Ollama status endpoint tests
 ├── docs/
-│   ├── AI_ASSISTANT.md      # AI layer design decisions
+│   ├── AI_ASSISTANT.md
 │   ├── REGULATORY_REFERENCES.md
 │   ├── ROADMAP.md
 │   └── FRONTEND_AI_AUDIT_AND_ROADMAP.md
-├── frontend/                # React 19 investigation board (Phase 3)
-├── Dockerfile
+├── frontend/                # React investigation board (Phase 3)
+├── Dockerfile               # Non-root appuser
 ├── docker-compose.yml
 └── requirements.txt
 ```
@@ -182,6 +215,7 @@ data-integrity-case-file/
 | Phase 0 | Documentation & ALCOA+ regulatory map | ✅ Complete |
 | Phase 1 | Case, Finding, Evidence & CAPA domain models + AI layer | ✅ Complete |
 | Phase 2 | FastAPI endpoints & synthetic case library | ✅ Complete |
+| Phase 2.1 | API key, rate limits, security headers, non-root Docker | ✅ Complete |
 | Phase 3 | Investigation board & detail reviewer UI (React 19) | 🔄 In progress |
 | Phase 4 | Automated test suite, CodeQL & Docker delivery | 📋 Planned |
 
@@ -201,7 +235,8 @@ data-integrity-case-file/
 ## Running Tests
 
 ```bash
-# Unit + contract tests (no Ollama required — Ollama calls are mocked)
+# Unit + contract + security tests (no Ollama required — Ollama calls are mocked)
+export API_KEY=test-api-key   # tests also set this internally
 pytest tests/ -v
 
 # With coverage
@@ -214,7 +249,7 @@ pytest tests/ --cov=app --cov-report=term-missing
 
 ## Resumen en Español
 
-Espacio de trabajo educativo para **investigaciones de integridad de datos** bajo el marco ALCOA+: captura de hallazgos → análisis de brechas → registro de evidencias de pistas de auditoría → formulación de CAPA → cierre de calidad. Incluye una capa de **IA local** (Ollama, `llama3.2:3b`) que sugiere atributos ALCOA+ a investigar — toda sugerencia requiere revisión humana explícita antes de registrarse. Funciona con datos sintéticos y no certifica cumplimiento oficial.
+Espacio de trabajo educativo para **investigaciones de integridad de datos** bajo el marco ALCOA+: captura de hallazgos → análisis de brechas → registro de evidencias de pistas de auditoría → formulación de CAPA → cierre de calidad. Incluye una capa de **IA local** (Ollama, `llama3.2:3b`) que sugiere atributos ALCOA+ a investigar — toda sugerencia requiere revisión humana explícita antes de registrarse. La API usa **X-API-Key** y rate limiting; los datos son sintéticos y no certifican cumplimiento oficial.
 
 ---
 
