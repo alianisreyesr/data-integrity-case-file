@@ -11,8 +11,8 @@ services:
     volumes:
       - di_data:/app/data
     depends_on:
-      ollama:
-        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   frontend:
@@ -40,9 +40,29 @@ services:
       retries: 6
       start_period: 20s
 
-# After first `docker compose up --build`, pull the model once:
-#   docker compose exec ollama ollama pull llama3.2:3b
-# The model persists in the ollama_data volume on subsequent runs.
+  # One-shot init: pulls the configured model if not already present.
+  # Runs to completion before the API starts; safe to re-run (ollama pull
+  # is idempotent when the model is already cached in the volume).
+  ollama-init:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "[ollama-init] Waiting for Ollama service..."
+        until curl -sf http://ollama:11434/api/tags > /dev/null; do
+          sleep 2
+        done
+        echo "[ollama-init] Pulling model: $${OLLAMA_MODEL}"
+        OLLAMA_HOST=http://ollama:11434 ollama pull $${OLLAMA_MODEL}
+        echo "[ollama-init] Model ready."
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
 
 volumes:
   di_data:
