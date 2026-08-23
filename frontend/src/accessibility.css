@@ -1,0 +1,79 @@
+/* Responsive and motion-preference enhancements. */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.8rem;
+    padding: 1rem;
+  }
+
+  .nav {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .nav button {
+    flex: 1 1 120px;
+  }
+
+  .banner, .main {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .main {
+    padding-top: 1rem;
+  }
+
+  .section {
+    padding: 1rem;
+  }
+
+  .filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filters select, .filters input {
+    max-width: none !important;
+  }
+
+  .section table, .main > table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  th, td {
+    padding: 0.55rem 0.65rem;
+  }
+
+  textarea {
+    min-height: 96px;
+  }
+
+  button.primary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar h1 {
+    font-size: 1rem;
+  }
+}
