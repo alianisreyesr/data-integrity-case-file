@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Status](https://img.shields.io/badge/Status-In%20Development-2E7D32?style=flat-square)](https://github.com/alianisreyesr/data-integrity-case-file)
+[![Status](https://img.shields.io/badge/Status-Active%20Portfolio%20Project-2E7D32?style=flat-square)](https://github.com/alianisreyesr/data-integrity-case-file)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
@@ -121,7 +121,7 @@ All endpoints below except `GET /health` require **`X-API-Key`**. Write operatio
 ### Core Workflow
 
 | Method | Path | Description |
-|--------|------|--------------|
+|--------|------|--------------| 
 | `GET` | `/health` | Service health + data boundary reminder (public) |
 | `GET` | `/summary` | Case counts, open gaps, CAPA stats |
 | `GET` | `/cases` | List all cases (filter by `?status=`) |
@@ -138,7 +138,7 @@ All endpoints below except `GET /health` require **`X-API-Key`**. Write operatio
 ### AI-Assisted Triage (Human Review Required)
 
 | Method | Path | Description |
-|--------|------|--------------|
+|--------|------|--------------| 
 | `GET` | `/ai/status` | Ollama service + model availability check |
 | `POST` | `/cases/{id}/ai-suggest-gaps` | Generate ALCOA+ gap suggestions (local LLM; stricter rate limit) |
 | `GET` | `/cases/{id}/ai-suggestions` | List all AI suggestions for a case |
@@ -200,7 +200,7 @@ data-integrity-case-file/
 │   ├── REGULATORY_REFERENCES.md
 │   ├── ROADMAP.md
 │   └── FRONTEND_AI_AUDIT_AND_ROADMAP.md
-├── frontend/                # React investigation board (Phase 3)
+├── frontend/                # React 19 investigation board
 ├── Dockerfile               # Non-root appuser
 ├── docker-compose.yml
 └── requirements.txt
@@ -216,8 +216,8 @@ data-integrity-case-file/
 | Phase 1 | Case, Finding, Evidence & CAPA domain models + AI layer | ✅ Complete |
 | Phase 2 | FastAPI endpoints & synthetic case library | ✅ Complete |
 | Phase 2.1 | API key, rate limits, security headers, non-root Docker | ✅ Complete |
-| Phase 3 | Investigation board & detail reviewer UI (React 19) | 🔄 In progress |
-| Phase 4 | Automated test suite, CodeQL & Docker delivery | 📋 Planned |
+| Phase 3 | Investigation board & detail reviewer UI (React 19) | ✅ Complete |
+| Phase 4 | Extended test suite, CodeQL scanning & hardened Docker delivery | ✅ Complete |
 
 ---
 
@@ -229,6 +229,7 @@ data-integrity-case-file/
 | [Quality Deviation Risk Monitor](https://github.com/alianisreyesr/quality-deviation-risk-monitor) | Deviation prioritization & scoring | 57 tests · Append-only audit |
 | [CSV Evidence Tracker](https://github.com/alianisreyesr/csv-evidence-tracker) | RTM & IQ/OQ/PQ execution patterns | ALCOA+ verified evidence |
 | [CSA Assurance Planner](https://github.com/alianisreyesr/csa-assurance-planner) | Risk-based software assurance planning | FDA CSA alignment |
+| [GxP Batch Data Pipeline](https://github.com/alianisreyesr/gxp-batch-data-pipeline) | Batch manufacturing data pipeline | DuckDB · dbt · Great Expectations |
 
 ---
 
