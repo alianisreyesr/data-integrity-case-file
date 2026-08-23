@@ -16,6 +16,12 @@ import { UserFacingError, messageForApiFailure } from "./errors";
 
 const BASE = "/api";
 
+/** API key for the local demo. Override with VITE_API_KEY at build/dev time. */
+const API_KEY =
+  (typeof import.meta !== "undefined" &&
+    (import.meta as { env?: { VITE_API_KEY?: string } }).env?.VITE_API_KEY) ||
+  "dev-api-key-change-me";
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
 
@@ -24,6 +30,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options,
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": API_KEY,
         ...(options.headers || {}),
       },
     });
