@@ -1,4 +1,8 @@
-"""Populate the DB with synthetic investigation cases."""
+"""Populate the DB with synthetic investigation cases.
+
+Idempotent: exits without inserting if any case rows already exist.
+Safe to run at Docker build time or on a pre-existing volume.
+"""
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -50,11 +54,19 @@ CAPAS = [
 def seed():
     init_db()
     conn = get_connection()
+
+    # Idempotency guard: skip all inserts if data already exists
+    existing = conn.execute("SELECT COUNT(*) FROM cases").fetchone()[0]
+    if existing > 0:
+        print(f"Seed skipped: {existing} case(s) already present in database.")
+        conn.close()
+        return
+
     with conn:
         for title, system, signal_type, opener, days_ago in CASES:
             ref = _ref("DI")
             conn.execute(
-                "INSERT OR IGNORE INTO cases (case_ref,title,system,signal_type,status,opened_by,opened_at) VALUES (?,?,?,?,?,?,?)",
+                "INSERT INTO cases (case_ref,title,system,signal_type,status,opened_by,opened_at) VALUES (?,?,?,?,?,?,?)",
                 (ref, title, system, signal_type, "investigation", opener, _now(days_ago))
             )
 
@@ -74,7 +86,7 @@ def seed():
                     (cid, ev_type, desc, "A.Reyes", _now(3))
                 )
 
-        for i, (cid) in enumerate(case_ids[:3]):
+        for i, cid in enumerate(case_ids[:3]):
             a_type, desc, owner, due = CAPAS[i % len(CAPAS)]
             cref = _ref("CAPA")
             conn.execute(
@@ -89,7 +101,7 @@ def seed():
             )
 
     conn.close()
-    print(f"Seeded {len(CASES)} cases with ALCOA+ gaps, evidence, CAPAs, and audit entries.")
+    print(f"Seeded {len(CASES)} synthetic cases with ALCOA+ gaps, evidence, CAPAs, and audit entries.")
 
 
 if __name__ == "__main__":
