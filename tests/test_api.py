@@ -3,7 +3,6 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-# Must set before importing app so middleware picks up the test key
 os.environ.setdefault("API_KEY", "test-api-key")
 
 from app.main import app
@@ -29,6 +28,18 @@ def setup_db(tmp_path, monkeypatch):
     yield
 
 
+def _create_case(title="Test DI case"):
+    payload = {
+        "title": title,
+        "system": "LIMS-01",
+        "signal_type": "audit_finding",
+        "opened_by": "tester",
+    }
+    r = client.post("/cases", json=payload, headers=ACTOR)
+    assert r.status_code == 201
+    return r.json()["id"]
+
+
 def test_health_public():
     r = client.get("/health")
     assert r.status_code == 200
@@ -43,8 +54,7 @@ def test_summary_requires_api_key():
 def test_summary_empty():
     r = client.get("/summary", headers=AUTH)
     assert r.status_code == 200
-    data = r.json()
-    assert data["total_cases"] == 0
+    assert r.json()["total_cases"] == 0
 
 
 def test_invalid_api_key():
@@ -53,18 +63,11 @@ def test_invalid_api_key():
 
 
 def test_create_and_get_case():
-    payload = {
-        "title": "Test DI case",
-        "system": "LIMS-01",
-        "signal_type": "audit_finding",
-        "opened_by": "tester",
-    }
-    r = client.post("/cases", json=payload, headers=ACTOR)
-    assert r.status_code == 201
-    case_id = r.json()["id"]
+    case_id = _create_case()
     r2 = client.get(f"/cases/{case_id}", headers=AUTH)
     assert r2.status_code == 200
     assert r2.json()["title"] == "Test DI case"
+    assert r2.json()["status"] == "intake"
 
 
 def test_create_case_missing_actor():
@@ -89,14 +92,60 @@ def test_create_case_missing_api_key():
     assert r.status_code == 401
 
 
-def test_alcoa_gap():
-    payload = {
-        "title": "ALCOA test",
-        "system": "SYS",
-        "signal_type": "audit_finding",
-        "opened_by": "tester",
+def test_list_cases_invalid_status_query():
+    r = client.get("/cases?status=not_a_real_status", headers=AUTH)
+    assert r.status_code == 422
+
+
+def test_list_cases_valid_status_filter():
+    _create_case("Filter me")
+    r = client.get("/cases?status=intake", headers=AUTH)
+    assert r.status_code == 200
+    assert all(c["status"] == "intake" for c in r.json())
+
+
+def test_update_case_status_and_close():
+    case_id = _create_case()
+    r = client.patch(
+        f"/cases/{case_id}/status",
+        json={"status": "investigation"},
+        headers=ACTOR,
+    )
+    assert r.status_code == 200
+    assert r.json()["status"] == "investigation"
+
+    r2 = client.post(f"/cases/{case_id}/close", headers=ACTOR)
+    assert r2.status_code == 200
+    assert r2.json()["status"] == "closed"
+    assert r2.json()["closed_at"] is not None
+
+
+def test_invalid_case_status_transition():
+    case_id = _create_case()
+    # intake cannot jump directly to capa_formulation
+    r = client.patch(
+        f"/cases/{case_id}/status",
+        json={"status": "capa_formulation"},
+        headers=ACTOR,
+    )
+    assert r.status_code == 409
+
+
+def test_closed_case_blocks_mutations():
+    case_id = _create_case()
+    client.post(f"/cases/{case_id}/close", headers=ACTOR)
+    gap = {
+        "attribute": "Attributable",
+        "gap_found": True,
+        "observation": "Should fail",
+        "assessed_by": "tester",
     }
-    case_id = client.post("/cases", json=payload, headers=ACTOR).json()["id"]
+    r = client.post(f"/cases/{case_id}/alcoa-gaps", json=gap, headers=ACTOR)
+    assert r.status_code == 409
+
+
+def test_alcoa_gap():
+    case_id = _create_case("ALCOA test")
     gap = {
         "attribute": "Attributable",
         "gap_found": True,
@@ -109,16 +158,7 @@ def test_alcoa_gap():
 
 
 def test_evidence():
-    case_id = client.post(
-        "/cases",
-        json={
-            "title": "Ev test",
-            "system": "SYS",
-            "signal_type": "data_gap",
-            "opened_by": "tester",
-        },
-        headers=ACTOR,
-    ).json()["id"]
+    case_id = _create_case("Ev test")
     ev = {
         "evidence_type": "audit_trail_review",
         "description": "Reviewed 30-day export",
@@ -128,17 +168,8 @@ def test_evidence():
     assert r.status_code == 201
 
 
-def test_capa():
-    case_id = client.post(
-        "/cases",
-        json={
-            "title": "CAPA test",
-            "system": "SYS",
-            "signal_type": "data_gap",
-            "opened_by": "tester",
-        },
-        headers=ACTOR,
-    ).json()["id"]
+def test_capa_and_status_update():
+    case_id = _create_case("CAPA test")
     capa = {
         "action_type": "corrective",
         "description": "Fix the actor field in LIMS config",
@@ -147,20 +178,28 @@ def test_capa():
     }
     r = client.post(f"/cases/{case_id}/capas", json=capa, headers=ACTOR)
     assert r.status_code == 201
+    capa_id = r.json()["id"]
     assert r.json()["status"] == "open"
+
+    r2 = client.patch(
+        f"/cases/{case_id}/capas/{capa_id}/status",
+        json={"status": "in_progress"},
+        headers=ACTOR,
+    )
+    assert r2.status_code == 200
+    assert r2.json()["status"] == "in_progress"
+
+    r3 = client.patch(
+        f"/cases/{case_id}/capas/{capa_id}/status",
+        json={"status": "verified"},
+        headers=ACTOR,
+    )
+    assert r3.status_code == 200
+    assert r3.json()["status"] == "verified"
 
 
 def test_audit_log():
-    client.post(
-        "/cases",
-        json={
-            "title": "Audit test",
-            "system": "SYS",
-            "signal_type": "audit_finding",
-            "opened_by": "tester",
-        },
-        headers=ACTOR,
-    )
+    _create_case("Audit test")
     r = client.get("/audit-log", headers=AUTH)
     assert r.status_code == 200
     assert len(r.json()) >= 1
@@ -173,16 +212,7 @@ def test_case_not_found():
 
 def test_summary_after_creates():
     for i in range(3):
-        client.post(
-            "/cases",
-            json={
-                "title": f"Case {i}",
-                "system": "SYS",
-                "signal_type": "audit_finding",
-                "opened_by": "tester",
-            },
-            headers=ACTOR,
-        )
+        _create_case(f"Case {i}")
     r = client.get("/summary", headers=AUTH)
     assert r.json()["total_cases"] == 3
 
