@@ -17,6 +17,7 @@ from pydantic import BaseModel, ValidationError
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
+OLLAMA_TIMEOUT_SECONDS = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "180"))
 PROMPT_VERSION = "ai-gap-triage-v1"
 
 ALCOA_ATTRIBUTE = Literal[
@@ -70,7 +71,11 @@ def call_ollama_chat(user_prompt: str) -> dict:
         ],
     }
     try:
-        response = httpx.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=60)
+        response = httpx.post(
+            f"{OLLAMA_BASE_URL}/api/chat",
+            json=payload,
+            timeout=OLLAMA_TIMEOUT_SECONDS,
+        )
         response.raise_for_status()
     except httpx.HTTPError as exc:
         raise AiUnavailableError(f"Ollama request failed: {exc}") from exc
