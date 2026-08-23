@@ -22,17 +22,23 @@ export default function AuditLog() {
           onChange={(e) => setCaseFilter(e.target.value)}
           placeholder="e.g. 1"
           style={{ maxWidth: "120px" }}
+          inputMode="numeric"
         />
       </div>
-      {error && <p className="error">{error}</p>}
-      <ul className="timeline">
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <h2 className="sr-only">Audit log entries</h2>
+      <ul className="timeline" aria-live="polite">
         {entries.map((entry) => (
           <li key={entry.id}>
             <span className="actor">{entry.actor}</span> {entry.action}
             {entry.detail ? ` — ${entry.detail}` : ""}
             <div className="time">
               {entry.case_id ? `Case #${entry.case_id} · ` : ""}
-              {new Date(entry.created_at).toISOString()}
+              <time dateTime={entry.created_at}>{new Date(entry.created_at).toISOString()}</time>
             </div>
           </li>
         ))}

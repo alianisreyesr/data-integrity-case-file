@@ -35,33 +35,40 @@ export default function NewCaseForm({ onCreated }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div>
-        <label htmlFor="title">Case title</label>
-        <input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required minLength={3} />
-      </div>
-      <div>
-        <label htmlFor="system">System</label>
-        <input id="system" value={system} onChange={(e) => setSystem(e.target.value)} required minLength={2} />
-      </div>
-      <div>
-        <label htmlFor="signal-type">Signal type</label>
-        <select id="signal-type" value={signalType} onChange={(e) => setSignalType(e.target.value)}>
-          {SIGNAL_TYPES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label htmlFor="opened-by">Opened by</label>
-        <input id="opened-by" value={openedBy} onChange={(e) => setOpenedBy(e.target.value)} required minLength={2} />
-      </div>
-      {error && <p className="error">{error}</p>}
-      <button className="primary" type="submit" disabled={submitting}>
-        {submitting ? "Creating..." : "Create case"}
-      </button>
+    <form onSubmit={handleSubmit} aria-label="Create a new data integrity case" aria-busy={submitting}>
+      <fieldset>
+        <legend>New case details</legend>
+        <div>
+          <label htmlFor="title">Case title</label>
+          <input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required minLength={3} />
+        </div>
+        <div>
+          <label htmlFor="system">System</label>
+          <input id="system" value={system} onChange={(e) => setSystem(e.target.value)} required minLength={2} />
+        </div>
+        <div>
+          <label htmlFor="signal-type">Signal type</label>
+          <select id="signal-type" value={signalType} onChange={(e) => setSignalType(e.target.value)}>
+            {SIGNAL_TYPES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="opened-by">Opened by</label>
+          <input id="opened-by" value={openedBy} onChange={(e) => setOpenedBy(e.target.value)} required minLength={2} />
+        </div>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <button className="primary" type="submit" disabled={submitting}>
+          {submitting ? "Creating..." : "Create case"}
+        </button>
+      </fieldset>
     </form>
   );
 }

@@ -1,14 +1,15 @@
 :root {
   --navy: #0b3d5c;
-  --blue: #1f6f9c;
+  --blue: #1a5f85;
   --bg: #f4f6f8;
   --card: #ffffff;
   --text: #1c2b36;
-  --muted: #5c6b76;
-  --danger: #b3261e;
-  --success: #2e7d32;
-  --warning: #b26a00;
-  --border: #dfe4e8;
+  --muted: #4d5a64;
+  --danger: #a5251d;
+  --success: #256029;
+  --warning: #8a5200;
+  --border: #cfd7dd;
+  --focus: #7a4b00;
 }
 
 * {
@@ -20,6 +21,47 @@ body {
   font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.skip-link:focus {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  width: auto;
+  height: auto;
+  padding: 0.6rem 1rem;
+  background: var(--navy);
+  color: white;
+  border-radius: 6px;
+  z-index: 200;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:focus-visible {
+  outline: 3px solid #ffb400;
+  outline-offset: 2px;
 }
 
 .app {
@@ -49,12 +91,13 @@ body {
 
 .nav button {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   color: white;
-  padding: 0.4rem 0.9rem;
+  padding: 0.55rem 0.9rem;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.85rem;
+  min-height: 38px;
 }
 
 .nav button.active {
@@ -65,10 +108,10 @@ body {
 
 .banner {
   background: #fff4e5;
-  border-bottom: 1px solid #f0c36d;
+  border-bottom: 1px solid #b98a2f;
   padding: 0.5rem 1.5rem;
   font-size: 0.8rem;
-  color: #7a4b00;
+  color: #5c3d00;
 }
 
 .main {
@@ -119,18 +162,23 @@ th, td {
   padding: 0.6rem 0.8rem;
   border-bottom: 1px solid var(--border);
   font-size: 0.85rem;
+  font-weight: normal;
 }
 
-th {
-  background: #eef2f5;
+thead th {
+  background: #e3e9ed;
   color: var(--muted);
   text-transform: uppercase;
   font-size: 0.7rem;
+  font-weight: 700;
 }
 
-tr:hover td {
-  background: #f7fafc;
-  cursor: pointer;
+tbody th[scope="row"] {
+  font-weight: 600;
+}
+
+tr:hover td, tr:hover th {
+  background: #eef3f6;
 }
 
 .badge {
@@ -138,13 +186,13 @@ tr:hover td {
   padding: 0.15rem 0.5rem;
   border-radius: 12px;
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.badge.open { background: #e3f2fd; color: var(--blue); }
-.badge.closed { background: #e8f5e9; color: var(--success); }
-.badge.gap { background: #fdecea; color: var(--danger); }
-.badge.ok { background: #e8f5e9; color: var(--success); }
+.badge.open { background: #dceefb; color: var(--blue); }
+.badge.closed { background: #dcf0dd; color: var(--success); }
+.badge.gap { background: #fbdedb; color: var(--danger); }
+.badge.ok { background: #dcf0dd; color: var(--success); }
 
 .section {
   background: var(--card);
@@ -166,6 +214,22 @@ form {
   max-width: 480px;
 }
 
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--navy);
+  padding: 0;
+  margin-bottom: 0.2rem;
+}
+
 label {
   font-size: 0.8rem;
   color: var(--muted);
@@ -175,25 +239,32 @@ label {
 
 input, select, textarea {
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.55rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  min-height: 38px;
 }
 
 button.primary {
   background: var(--navy);
   color: white;
   border: none;
-  padding: 0.55rem 1.1rem;
+  padding: 0.6rem 1.1rem;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   width: fit-content;
+  min-height: 40px;
 }
 
 button.primary:hover {
   background: var(--blue);
+}
+
+button.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 button.link {
@@ -201,8 +272,9 @@ button.link {
   border: none;
   color: var(--blue);
   cursor: pointer;
-  padding: 0;
-  font-size: 0.85rem;
+  padding: 0.2rem 0;
+  font-size: 0.9rem;
+  text-decoration: underline;
 }
 
 .filters {
@@ -219,14 +291,14 @@ button.link {
 }
 
 .timeline li {
-  border-left: 2px solid var(--border);
+  border-left: 3px solid var(--border);
   padding: 0.5rem 1rem;
   margin-bottom: 0.4rem;
   font-size: 0.85rem;
 }
 
 .timeline .actor {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--navy);
 }
 
@@ -237,8 +309,9 @@ button.link {
 
 .error {
   color: var(--danger);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   margin-top: 0.5rem;
+  font-weight: 600;
 }
 
 .muted {

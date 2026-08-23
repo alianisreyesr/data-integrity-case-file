@@ -93,12 +93,22 @@ export default function CaseDetail({ caseId, onBack }: Props) {
     }
   }
 
-  if (error) return <p className="error">{error}</p>;
-  if (!caseData) return <p className="muted">Loading case...</p>;
+  if (error)
+    return (
+      <p className="error" role="alert">
+        {error}
+      </p>
+    );
+  if (!caseData)
+    return (
+      <p className="muted" role="status" aria-live="polite">
+        Loading case...
+      </p>
+    );
 
   return (
     <div>
-      <button className="link" onClick={onBack}>
+      <button type="button" className="link" onClick={onBack}>
         Back to cases
       </button>
       <h2 style={{ marginTop: "0.8rem" }}>
@@ -112,18 +122,19 @@ export default function CaseDetail({ caseId, onBack }: Props) {
       <div className="section">
         <h2>ALCOA+ gap matrix</h2>
         <table>
+          <caption className="sr-only">ALCOA+ attribute assessments recorded for this case</caption>
           <thead>
             <tr>
-              <th>Attribute</th>
-              <th>Gap found</th>
-              <th>Observation</th>
-              <th>Assessed by</th>
+              <th scope="col">Attribute</th>
+              <th scope="col">Gap found</th>
+              <th scope="col">Observation</th>
+              <th scope="col">Assessed by</th>
             </tr>
           </thead>
           <tbody>
             {gaps.map((g) => (
               <tr key={g.id}>
-                <td>{g.attribute}</td>
+                <th scope="row">{g.attribute}</th>
                 <td>
                   <span className={`badge ${g.gap_found ? "gap" : "ok"}`}>{g.gap_found ? "Gap" : "OK"}</span>
                 </td>
@@ -134,56 +145,72 @@ export default function CaseDetail({ caseId, onBack }: Props) {
           </tbody>
         </table>
         {gaps.length === 0 && <p className="muted">No ALCOA+ assessment recorded yet.</p>}
-        <form onSubmit={submitGap} style={{ marginTop: "1rem" }}>
-          <div>
-            <label>Attribute</label>
-            <select value={gapAttribute} onChange={(e) => setGapAttribute(e.target.value)}>
-              {ALCOA_ATTRIBUTES.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                checked={gapFound}
-                onChange={(e) => setGapFound(e.target.checked)}
-                style={{ width: "auto", marginRight: "0.4rem" }}
+        <form onSubmit={submitGap} style={{ marginTop: "1rem" }} aria-label="Record ALCOA+ gap assessment">
+          <fieldset>
+            <legend>Record gap assessment</legend>
+            <div>
+              <label htmlFor="gap-attribute">Attribute</label>
+              <select id="gap-attribute" value={gapAttribute} onChange={(e) => setGapAttribute(e.target.value)}>
+                {ALCOA_ATTRIBUTES.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="gap-found">
+                <input
+                  id="gap-found"
+                  type="checkbox"
+                  checked={gapFound}
+                  onChange={(e) => setGapFound(e.target.checked)}
+                  style={{ width: "auto", marginRight: "0.4rem" }}
+                />
+                Gap found
+              </label>
+            </div>
+            <div>
+              <label htmlFor="gap-observation">Observation</label>
+              <textarea
+                id="gap-observation"
+                value={gapObservation}
+                onChange={(e) => setGapObservation(e.target.value)}
+                rows={2}
               />
-              Gap found
-            </label>
-          </div>
-          <div>
-            <label>Observation</label>
-            <textarea value={gapObservation} onChange={(e) => setGapObservation(e.target.value)} rows={2} />
-          </div>
-          <div>
-            <label>Assessed by</label>
-            <input value={gapAssessor} onChange={(e) => setGapAssessor(e.target.value)} required minLength={2} />
-          </div>
-          <button className="primary" type="submit">
-            Record gap assessment
-          </button>
+            </div>
+            <div>
+              <label htmlFor="gap-assessor">Assessed by</label>
+              <input
+                id="gap-assessor"
+                value={gapAssessor}
+                onChange={(e) => setGapAssessor(e.target.value)}
+                required
+                minLength={2}
+              />
+            </div>
+            <button className="primary" type="submit">
+              Record gap assessment
+            </button>
+          </fieldset>
         </form>
       </div>
 
       <div className="section">
         <h2>Evidence log</h2>
         <table>
+          <caption className="sr-only">Evidence entries recorded for this case</caption>
           <thead>
             <tr>
-              <th>Type</th>
-              <th>Description</th>
-              <th>Recorded by</th>
+              <th scope="col">Type</th>
+              <th scope="col">Description</th>
+              <th scope="col">Recorded by</th>
             </tr>
           </thead>
           <tbody>
             {evidence.map((ev) => (
               <tr key={ev.id}>
-                <td>{ev.evidence_type}</td>
+                <th scope="row">{ev.evidence_type}</th>
                 <td>{ev.description}</td>
                 <td>{ev.recorded_by}</td>
               </tr>
@@ -191,58 +218,71 @@ export default function CaseDetail({ caseId, onBack }: Props) {
           </tbody>
         </table>
         {evidence.length === 0 && <p className="muted">No evidence recorded yet.</p>}
-        <form onSubmit={submitEvidence} style={{ marginTop: "1rem" }}>
-          <div>
-            <label>Evidence type</label>
-            <select value={evidenceType} onChange={(e) => setEvidenceType(e.target.value)}>
-              {EVIDENCE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label>Description</label>
-            <textarea
-              value={evidenceDescription}
-              onChange={(e) => setEvidenceDescription(e.target.value)}
-              rows={2}
-              required
-              minLength={5}
-            />
-          </div>
-          <div>
-            <label>Recorded by</label>
-            <input value={evidenceRecorder} onChange={(e) => setEvidenceRecorder(e.target.value)} required minLength={2} />
-          </div>
-          <button className="primary" type="submit">
-            Add evidence
-          </button>
+        <form onSubmit={submitEvidence} style={{ marginTop: "1rem" }} aria-label="Add evidence entry">
+          <fieldset>
+            <legend>Add evidence</legend>
+            <div>
+              <label htmlFor="evidence-type">Evidence type</label>
+              <select id="evidence-type" value={evidenceType} onChange={(e) => setEvidenceType(e.target.value)}>
+                {EVIDENCE_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="evidence-description">Description</label>
+              <textarea
+                id="evidence-description"
+                value={evidenceDescription}
+                onChange={(e) => setEvidenceDescription(e.target.value)}
+                rows={2}
+                required
+                minLength={5}
+              />
+            </div>
+            <div>
+              <label htmlFor="evidence-recorder">Recorded by</label>
+              <input
+                id="evidence-recorder"
+                value={evidenceRecorder}
+                onChange={(e) => setEvidenceRecorder(e.target.value)}
+                required
+                minLength={2}
+              />
+            </div>
+            <button className="primary" type="submit">
+              Add evidence
+            </button>
+          </fieldset>
         </form>
       </div>
 
       <div className="section">
         <h2>CAPAs</h2>
         <table>
+          <caption className="sr-only">Corrective and preventive actions recorded for this case</caption>
           <thead>
             <tr>
-              <th>Reference</th>
-              <th>Type</th>
-              <th>Description</th>
-              <th>Owner</th>
-              <th>Due date</th>
-              <th>Status</th>
+              <th scope="col">Reference</th>
+              <th scope="col">Type</th>
+              <th scope="col">Description</th>
+              <th scope="col">Owner</th>
+              <th scope="col">Due date</th>
+              <th scope="col">Status</th>
             </tr>
           </thead>
           <tbody>
             {capas.map((c) => (
               <tr key={c.id}>
-                <td>{c.capa_ref}</td>
+                <th scope="row">{c.capa_ref}</th>
                 <td>{c.action_type}</td>
                 <td>{c.description}</td>
                 <td>{c.owner}</td>
-                <td>{c.due_date}</td>
+                <td>
+                  <time dateTime={c.due_date}>{c.due_date}</time>
+                </td>
                 <td>
                   <span className={`badge ${c.status === "closed" ? "closed" : "open"}`}>{c.status}</span>
                 </td>
@@ -251,35 +291,49 @@ export default function CaseDetail({ caseId, onBack }: Props) {
           </tbody>
         </table>
         {capas.length === 0 && <p className="muted">No CAPAs recorded yet.</p>}
-        <form onSubmit={submitCapa} style={{ marginTop: "1rem" }}>
-          <div>
-            <label>Action type</label>
-            <select value={capaType} onChange={(e) => setCapaType(e.target.value as "corrective" | "preventive")}>
-              <option value="corrective">corrective</option>
-              <option value="preventive">preventive</option>
-            </select>
-          </div>
-          <div>
-            <label>Description</label>
-            <textarea
-              value={capaDescription}
-              onChange={(e) => setCapaDescription(e.target.value)}
-              rows={2}
-              required
-              minLength={10}
-            />
-          </div>
-          <div>
-            <label>Owner</label>
-            <input value={capaOwner} onChange={(e) => setCapaOwner(e.target.value)} required minLength={2} />
-          </div>
-          <div>
-            <label>Due date</label>
-            <input type="date" value={capaDueDate} onChange={(e) => setCapaDueDate(e.target.value)} required />
-          </div>
-          <button className="primary" type="submit">
-            Add CAPA
-          </button>
+        <form onSubmit={submitCapa} style={{ marginTop: "1rem" }} aria-label="Add CAPA">
+          <fieldset>
+            <legend>Add CAPA</legend>
+            <div>
+              <label htmlFor="capa-type">Action type</label>
+              <select
+                id="capa-type"
+                value={capaType}
+                onChange={(e) => setCapaType(e.target.value as "corrective" | "preventive")}
+              >
+                <option value="corrective">corrective</option>
+                <option value="preventive">preventive</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="capa-description">Description</label>
+              <textarea
+                id="capa-description"
+                value={capaDescription}
+                onChange={(e) => setCapaDescription(e.target.value)}
+                rows={2}
+                required
+                minLength={10}
+              />
+            </div>
+            <div>
+              <label htmlFor="capa-owner">Owner</label>
+              <input id="capa-owner" value={capaOwner} onChange={(e) => setCapaOwner(e.target.value)} required minLength={2} />
+            </div>
+            <div>
+              <label htmlFor="capa-due-date">Due date</label>
+              <input
+                id="capa-due-date"
+                type="date"
+                value={capaDueDate}
+                onChange={(e) => setCapaDueDate(e.target.value)}
+                required
+              />
+            </div>
+            <button className="primary" type="submit">
+              Add CAPA
+            </button>
+          </fieldset>
         </form>
       </div>
     </div>

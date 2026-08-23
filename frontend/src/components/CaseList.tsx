@@ -32,22 +32,35 @@ export default function CaseList({ onSelect }: Props) {
           ))}
         </select>
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       <table>
+        <caption className="sr-only">
+          Data integrity cases{status ? ` with status ${status}` : ""}. Activate a case reference to view its
+          details.
+        </caption>
         <thead>
           <tr>
-            <th>Reference</th>
-            <th>Title</th>
-            <th>System</th>
-            <th>Signal type</th>
-            <th>Status</th>
-            <th>Opened by</th>
+            <th scope="col">Reference</th>
+            <th scope="col">Title</th>
+            <th scope="col">System</th>
+            <th scope="col">Signal type</th>
+            <th scope="col">Status</th>
+            <th scope="col">Opened by</th>
           </tr>
         </thead>
         <tbody>
           {cases.map((c) => (
-            <tr key={c.id} onClick={() => onSelect(c.id)}>
-              <td>{c.case_ref}</td>
+            <tr key={c.id}>
+              <th scope="row">
+                <button type="button" className="link" onClick={() => onSelect(c.id)}>
+                  {c.case_ref}
+                  <span className="sr-only"> — view case details</span>
+                </button>
+              </th>
               <td>{c.title}</td>
               <td>{c.system}</td>
               <td>{c.signal_type}</td>
