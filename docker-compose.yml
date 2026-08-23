@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_PATH=data/di_cases.db
+    volumes:
+      - di_data:/app/data
+
+volumes:
+  di_data:
