@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .ai_item_reviews import init_ai_item_review_db, router as ai_item_review_router
+from .ai_item_reviews import router as ai_item_review_router
 from .ai_status import router as ai_status_router
 from .database import init_db
 from .router import router
@@ -12,8 +12,7 @@ from .security import ApiKeyMiddleware, RateLimitMiddleware, SecurityHeadersMidd
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
-    init_ai_item_review_db()
+    await init_db()
     yield
 
 
@@ -21,9 +20,10 @@ app = FastAPI(
     title="Data Integrity Case File",
     description=(
         "Portfolio-safe ALCOA+ investigation workspace — synthetic data only. "
-        "Requires header X-API-Key on all endpoints except /health."
+        "Requires header X-API-Key on all endpoints except /health. "
+        "Async SQLite (aiosqlite) + async Ollama client."
     ),
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 

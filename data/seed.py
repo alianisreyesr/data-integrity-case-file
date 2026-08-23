@@ -6,7 +6,7 @@ Safe to run at Docker build time or on a pre-existing volume.
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.database import init_db, get_connection
+from app.database import init_db_sync, get_connection
 from datetime import datetime, timezone, timedelta
 import random, string
 
@@ -52,10 +52,9 @@ CAPAS = [
 
 
 def seed():
-    init_db()
+    init_db_sync()
     conn = get_connection()
 
-    # Idempotency guard: skip all inserts if data already exists
     existing = conn.execute("SELECT COUNT(*) FROM cases").fetchone()[0]
     if existing > 0:
         print(f"Seed skipped: {existing} case(s) already present in database.")

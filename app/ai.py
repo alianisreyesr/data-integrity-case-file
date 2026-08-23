@@ -1,10 +1,4 @@
-"""Local, open-source LLM assistant for ALCOA+ gap triage.
-
-This module never writes directly to case records. It produces structured
-suggestions that a qualified human must explicitly accept, reject, or modify.
-All requests are sent to a locally hosted Ollama instance; no case data is
-sent to any third-party API.
-"""
+"""Local, open-source LLM assistant for ALCOA+ gap triage (async HTTP)."""
 from __future__ import annotations
 
 import hashlib
@@ -60,7 +54,7 @@ class AiUnavailableError(Exception):
     """Raised when the local model cannot be reached or returns invalid output."""
 
 
-def call_ollama_chat(user_prompt: str) -> dict:
+async def call_ollama_chat(user_prompt: str) -> dict:
     payload = {
         "model": OLLAMA_MODEL,
         "stream": False,
@@ -71,23 +65,20 @@ def call_ollama_chat(user_prompt: str) -> dict:
         ],
     }
     try:
-        response = httpx.post(
-            f"{OLLAMA_BASE_URL}/api/chat",
-            json=payload,
-            timeout=OLLAMA_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
+        async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT_SECONDS) as client:
+            response = await client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
+            response.raise_for_status()
     except httpx.HTTPError as exc:
         raise AiUnavailableError(f"Ollama request failed: {exc}") from exc
     return response.json()
 
 
-def generate_gap_suggestions(title: str, system_name: str, signal_type: str) -> AiGapResponse:
+async def generate_gap_suggestions(title: str, system_name: str, signal_type: str) -> AiGapResponse:
     user_prompt = (
         f"Case title: {title}\nSystem: {system_name}\nSignal type: {signal_type}\n"
         "Return JSON only."
     )
-    raw = call_ollama_chat(user_prompt)
+    raw = await call_ollama_chat(user_prompt)
     content = raw.get("message", {}).get("content", "")
     try:
         parsed = json.loads(content)
