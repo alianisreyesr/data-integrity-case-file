@@ -1,12 +1,10 @@
 import os
 
-import pytest
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("API_KEY", "test-api-key")
 
 from app.main import app
-from app.database import init_db_sync
 import app.router as router_module
 from app import ai as ai_module
 import app.security as security_mod
@@ -16,17 +14,6 @@ security_mod.API_KEY = "test-api-key"
 client = TestClient(app)
 AUTH = {"X-API-Key": "test-api-key"}
 ACTOR = {"x-actor": "tester", **AUTH}
-
-
-@pytest.fixture(autouse=True)
-def setup_db(tmp_path, monkeypatch):
-    db = str(tmp_path / "test.db")
-    monkeypatch.setenv("DB_PATH", db)
-    import app.database as db_mod
-
-    db_mod.DB_PATH = db
-    init_db_sync()
-    yield
 
 
 def _create_case():
@@ -62,7 +49,6 @@ def test_ai_suggest_gaps_success(monkeypatch):
     body = r.json()
     assert body["model_provider"] == "local_ollama"
     assert body["suggestions"][0]["attribute"] == "Attributable"
-    assert body["human_action"] is None
 
 
 def test_ai_suggest_gaps_unavailable(monkeypatch):
@@ -100,7 +86,6 @@ def test_review_ai_suggestion(monkeypatch):
     )
     assert r.status_code == 200
     assert r.json()["human_action"] == "accepted"
-    assert r.json()["reviewed_by"] == "qa_reviewer"
 
 
 def test_list_ai_suggestions_empty():

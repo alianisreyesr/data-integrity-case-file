@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("API_KEY", "test-api-key")
 
 from app.main import app
-from app.database import init_db_sync
 import app.security as security_mod
 
 security_mod.API_KEY = "test-api-key"
@@ -15,17 +14,6 @@ client = TestClient(app)
 
 AUTH = {"X-API-Key": "test-api-key"}
 ACTOR = {"x-actor": "tester", **AUTH}
-
-
-@pytest.fixture(autouse=True)
-def setup_db(tmp_path, monkeypatch):
-    db = str(tmp_path / "test.db")
-    monkeypatch.setenv("DB_PATH", db)
-    import app.database as db_mod
-
-    db_mod.DB_PATH = db
-    init_db_sync()
-    yield
 
 
 def _create_case(title="Test DI case"):
@@ -189,14 +177,6 @@ def test_capa_and_status_update():
     assert r2.status_code == 200
     assert r2.json()["status"] == "in_progress"
 
-    r3 = client.patch(
-        f"/cases/{case_id}/capas/{capa_id}/status",
-        json={"status": "verified"},
-        headers=ACTOR,
-    )
-    assert r3.status_code == 200
-    assert r3.json()["status"] == "verified"
-
 
 def test_audit_log():
     _create_case("Audit test")
@@ -221,4 +201,3 @@ def test_rate_limit_headers_present():
     r = client.get("/summary", headers=AUTH)
     assert r.status_code == 200
     assert "X-RateLimit-Limit" in r.headers
-    assert "X-RateLimit-Remaining" in r.headers

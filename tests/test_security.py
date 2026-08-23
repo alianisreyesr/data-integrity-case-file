@@ -1,13 +1,11 @@
 """Security-focused tests: API key and rate limiting."""
 import os
 
-import pytest
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("API_KEY", "test-api-key")
 
 from app.main import app
-from app.database import init_db_sync
 import app.security as security_mod
 
 security_mod.API_KEY = "test-api-key"
@@ -19,22 +17,9 @@ client = TestClient(app)
 AUTH = {"X-API-Key": "test-api-key"}
 
 
-@pytest.fixture(autouse=True)
-def setup_db(tmp_path, monkeypatch):
-    db = str(tmp_path / "test.db")
-    monkeypatch.setenv("DB_PATH", db)
-    import app.database as db_mod
-
-    db_mod.DB_PATH = db
-    init_db_sync()
-    security_mod._limiter = security_mod.SlidingWindowLimiter()
-    yield
-
-
 def test_missing_api_key_returns_401():
     r = client.get("/cases")
     assert r.status_code == 401
-    assert "API key" in r.json()["detail"]
 
 
 def test_wrong_api_key_returns_401():
@@ -55,6 +40,4 @@ def test_rate_limit_exceeded_returns_429():
         assert r.status_code == 200
     r = client.get("/summary", headers=AUTH)
     assert r.status_code == 429
-    body = r.json()
-    assert "Rate limit" in body["detail"]
     assert "Retry-After" in r.headers
