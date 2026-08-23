@@ -2,17 +2,20 @@
 
 <div align="center">
 
-[![Status](https://img.shields.io/badge/Status-Scaffold-0A66C2?style=flat-square)](https://github.com/alianisreyesr/data-integrity-case-file)
+[![Status](https://img.shields.io/badge/Status-In%20Development-2E7D32?style=flat-square)](https://github.com/alianisreyesr/data-integrity-case-file)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![SQLite](https://img.shields.io/badge/SQLite-WAL%20mode-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Ollama](https://img.shields.io/badge/Ollama-llama3.2%3A3b-black?style=flat-square)](https://ollama.com/)
 [![Compliance](https://img.shields.io/badge/Guidance-ALCOA%2B_%2F_21_CFR_11-2E7D32?style=flat-square)](docs/REGULATORY_REFERENCES.md)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](docker-compose.yml)
 
-**ALCOA+ · Data Integrity · Investigation · CAPA Readiness · Audit Evidence**
+**ALCOA+ · Data Integrity · Investigation · CAPA Readiness · Audit Evidence · Local AI Triage**
 
 *Portfolio-safe prototype — synthetic data only*
 
-[Roadmap](docs/ROADMAP.md) · [Regulatory references](docs/REGULATORY_REFERENCES.md) · [Profile](https://github.com/alianisreyesr)
+[Roadmap](docs/ROADMAP.md) · [Regulatory References](docs/REGULATORY_REFERENCES.md) · [AI Assistant Docs](docs/AI_ASSISTANT.md) · [Profile](https://github.com/alianisreyesr)
 
 </div>
 
@@ -22,26 +25,172 @@
 
 ---
 
-## What this is
+## What This Is
 
-An investigative workspace modeling how quality and IT compliance professionals structure **data integrity investigations**:
+An investigative workspace modeling how quality and IT compliance professionals structure **data integrity investigations** under ALCOA+ and 21 CFR Part 11:
 
-1. **Intake:** Capture the signal (audit finding, system discrepancy, user access anomaly).
-2. **ALCOA+ gap analysis:** Evaluate affected data integrity attributes (Attributable, Legible, Contemporaneous, Original, Accurate, Complete, Consistent, Enduring, Available).
-3. **Evidence log:** Record audit trail reviews, technical metadata, and system access logs.
-4. **Root cause & CAPA formulation:** Structure corrective and preventive action items.
-5. **Workflow lifecycle:** Track case stages from intake through QA closure.
+1. **Intake** — Capture the signal (audit finding, system discrepancy, user access anomaly)
+2. **ALCOA+ gap analysis** — Evaluate affected attributes: Attributable, Legible, Contemporaneous, Original, Accurate, Complete, Consistent, Enduring, Available
+3. **Evidence log** — Record audit trail reviews, technical metadata, access logs, screenshots, interview notes
+4. **Root cause & CAPA formulation** — Structure corrective and preventive action items
+5. **AI-assisted triage** — Local LLM (Ollama + `llama3.2:3b`) suggests which ALCOA+ attributes to prioritize — human review required for every suggestion
+6. **Workflow lifecycle** — Track case stages from intake through QA closure
 
 Designed to demonstrate fluency in FDA, MHRA, and PIC/S data integrity frameworks through clean software architecture.
 
-**Stack:** Python · FastAPI · Pydantic · SQLite · React · Docker · GitHub Actions
+**Stack:** Python 3.11 · FastAPI 0.115 · Pydantic v2 · SQLite (WAL) · React 19 · Docker Compose · Ollama (local AI) · GitHub Actions
 
 ---
 
-## Regulated portfolio ecosystem
+## Quick Start
 
-| Project | Domain focus | Evidence |
-|---|---|---|
+### Option A — Docker Compose (recommended)
+
+```bash
+# 1. Clone
+git clone https://github.com/alianisreyesr/data-integrity-case-file.git
+cd data-integrity-case-file
+
+# 2. Start all services (API + Ollama)
+docker compose up --build
+
+# 3. Pull the AI model (first run only — ~2 GB)
+docker compose exec ollama ollama pull llama3.2:3b
+
+# 4. Verify
+curl http://localhost:8000/health
+curl http://localhost:8000/ai/status
+```
+
+> **Ollama note:** The `ollama` service starts automatically via Docker Compose. The model must be pulled once with step 3; it persists in the `ollama_data` volume on subsequent runs.
+
+### Option B — Local Python (no Docker)
+
+```bash
+# 1. Prerequisites: Python 3.11+, Ollama installed (https://ollama.com)
+ollama pull llama3.2:3b
+
+# 2. Install dependencies
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# 3. Seed synthetic data
+python data/seed.py
+
+# 4. Run
+uvicorn app.main:app --reload
+# API: http://localhost:8000
+# Docs: http://localhost:8000/docs
+```
+
+---
+
+## API Endpoints
+
+### Core Workflow
+
+| Method | Path | Description |
+|--------|------|--------------|
+| `GET` | `/health` | Service health + data boundary reminder |
+| `GET` | `/summary` | Case counts, open gaps, CAPA stats |
+| `GET` | `/cases` | List all cases (filter by `?status=`) |
+| `POST` | `/cases` | Open a new DI case (`X-Actor` header required) |
+| `GET` | `/cases/{id}` | Get case detail |
+| `GET` | `/cases/{id}/alcoa-gaps` | List ALCOA+ gap assessments |
+| `POST` | `/cases/{id}/alcoa-gaps` | Record a gap finding |
+| `GET` | `/cases/{id}/evidence` | List evidence entries |
+| `POST` | `/cases/{id}/evidence` | Add an evidence record |
+| `GET` | `/cases/{id}/capas` | List CAPAs for a case |
+| `POST` | `/cases/{id}/capas` | Create a CAPA item |
+| `GET` | `/audit-log` | Full audit log (filter by `?case_id=`) |
+
+### AI-Assisted Triage (Human Review Required)
+
+| Method | Path | Description |
+|--------|------|--------------|
+| `GET` | `/ai/status` | Ollama service + model availability check |
+| `POST` | `/cases/{id}/ai-suggest-gaps` | Generate ALCOA+ gap suggestions (local LLM) |
+| `GET` | `/cases/{id}/ai-suggestions` | List all AI suggestions for a case |
+| `POST` | `/ai-suggestions/{id}/review` | Accept / reject / modify full suggestion set |
+| `GET` | `/ai-suggestions/{id}/items` | List per-attribute suggestions with review status |
+| `POST` | `/ai-suggestions/{id}/items/{idx}/review` | Review a single suggestion item |
+
+> **Interactive docs:** `http://localhost:8000/docs` (Swagger UI)
+
+---
+
+## AI Layer
+
+The local AI assistant uses `llama3.2:3b` via Ollama running **entirely on your machine** — no data leaves your environment.
+
+```
+User opens case → POST /ai-suggest-gaps
+                      ↓
+              ai.py calls Ollama /api/chat
+                      ↓
+         LLM returns JSON: [{attribute, risk_level, rationale}]
+                      ↓
+         Response hashed (SHA-256) + stored in ai_suggestions
+                      ↓
+     Qualified human reviews each item: accepted / rejected / modified
+                      ↓
+              Decision logged to audit_log
+```
+
+The AI **never writes directly to case records**. Every suggestion requires explicit human action before any gap is recorded. The hash ensures the stored response is bitwise-identical to what the model returned.
+
+See [`docs/AI_ASSISTANT.md`](docs/AI_ASSISTANT.md) for the full design rationale.
+
+---
+
+## Project Structure
+
+```
+data-integrity-case-file/
+├── app/
+│   ├── main.py              # FastAPI app, startup, router registration
+│   ├── router.py            # All REST endpoints
+│   ├── models.py            # Pydantic v2 request/response models
+│   ├── database.py          # SQLite connection + schema init (WAL mode)
+│   ├── ai.py                # Ollama client, prompt, response validation
+│   ├── ai_status.py         # GET /ai/status — readiness check
+│   └── ai_item_reviews.py   # Per-item human review endpoints + DB init
+├── data/
+│   └── seed.py              # Synthetic case data seeder
+├── tests/
+│   ├── test_api.py          # Core workflow endpoint tests
+│   ├── test_ai.py           # AI module unit tests
+│   ├── test_ai_contract.py  # JSON contract / schema tests
+│   └── test_ai_status.py    # Ollama status endpoint tests
+├── docs/
+│   ├── AI_ASSISTANT.md      # AI layer design decisions
+│   ├── REGULATORY_REFERENCES.md
+│   ├── ROADMAP.md
+│   └── FRONTEND_AI_AUDIT_AND_ROADMAP.md
+├── frontend/                # React 19 investigation board (Phase 3)
+├── Dockerfile
+├── docker-compose.yml
+└── requirements.txt
+```
+
+---
+
+## Roadmap
+
+| Phase | Milestone | Status |
+|-------|-----------|--------|
+| Phase 0 | Documentation & ALCOA+ regulatory map | ✅ Complete |
+| Phase 1 | Case, Finding, Evidence & CAPA domain models + AI layer | ✅ Complete |
+| Phase 2 | FastAPI endpoints & synthetic case library | ✅ Complete |
+| Phase 3 | Investigation board & detail reviewer UI (React 19) | 🔄 In progress |
+| Phase 4 | Automated test suite, CodeQL & Docker delivery | 📋 Planned |
+
+---
+
+## Regulated Portfolio Ecosystem
+
+| Project | Domain Focus | Evidence |
+|---------|-------------|----------|
 | [GxP Change Control](https://github.com/alianisreyesr/gxp-change-control) | Controlled change lifecycle & approvals | v1.0.0 · 68 tests · CI/CD |
 | [Quality Deviation Risk Monitor](https://github.com/alianisreyesr/quality-deviation-risk-monitor) | Deviation prioritization & scoring | 57 tests · Append-only audit |
 | [CSV Evidence Tracker](https://github.com/alianisreyesr/csv-evidence-tracker) | RTM & IQ/OQ/PQ execution patterns | ALCOA+ verified evidence |
@@ -49,21 +198,23 @@ Designed to demonstrate fluency in FDA, MHRA, and PIC/S data integrity framework
 
 ---
 
-## Roadmap
+## Running Tests
 
-| Phase | Milestone | Status |
-|---|---|---|
-| Phase 0 | Documentation & ALCOA+ regulatory map | Complete |
-| Phase 1 | Case, Finding, Evidence & CAPA domain models | In development |
-| Phase 2 | FastAPI endpoints & synthetic case library | Planned |
-| Phase 3 | Investigation board & detail reviewer UI | Planned |
-| Phase 4 | Automated test suite, CodeQL & Docker delivery | Planned |
+```bash
+# Unit + contract tests (no Ollama required — Ollama calls are mocked)
+pytest tests/ -v
+
+# With coverage
+pytest tests/ --cov=app --cov-report=term-missing
+```
+
+> AI tests mock the Ollama HTTP call so the full test suite runs offline.
 
 ---
 
-## Spanish summary / Resumen
+## Resumen en Español
 
-Espacio de trabajo educativo para **investigaciones de integridad de datos** bajo el marco ALCOA+: captura de hallazgos → análisis de brechas → registro de evidencias de pistas de auditoría → formulación de CAPA → cierre de calidad. Funciona con datos sintéticos y no certifica cumplimiento oficial.
+Espacio de trabajo educativo para **investigaciones de integridad de datos** bajo el marco ALCOA+: captura de hallazgos → análisis de brechas → registro de evidencias de pistas de auditoría → formulación de CAPA → cierre de calidad. Incluye una capa de **IA local** (Ollama, `llama3.2:3b`) que sugiere atributos ALCOA+ a investigar — toda sugerencia requiere revisión humana explícita antes de registrarse. Funciona con datos sintéticos y no certifica cumplimiento oficial.
 
 ---
 
