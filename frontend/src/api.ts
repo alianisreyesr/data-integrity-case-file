@@ -12,21 +12,37 @@ import type {
   AiSuggestionOut,
   AiSuggestionReviewCreate,
 } from "./types";
+import { UserFacingError, messageForApiFailure } from "./errors";
 
 const BASE = "/api";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-  });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`${response.status} ${response.statusText}: ${body}`);
+  let response: Response;
+
+  try {
+    response = await fetch(`${BASE}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
+  } catch {
+    throw new UserFacingError(
+      "The application could not reach the local service. Confirm Docker Compose is running, then try again."
+    );
   }
+
+  if (!response.ok) {
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch {
+      body = null;
+    }
+    throw new UserFacingError(messageForApiFailure(response.status, body));
+  }
+
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
