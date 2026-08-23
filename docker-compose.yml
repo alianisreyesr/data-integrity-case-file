@@ -8,6 +8,11 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=llama3.2:3b
       - OLLAMA_TIMEOUT_SECONDS=180
+      - API_KEY=${API_KEY:-dev-api-key-change-me}
+      - RATE_LIMIT_DEFAULT=${RATE_LIMIT_DEFAULT:-120}
+      - RATE_LIMIT_WINDOW_SECONDS=${RATE_LIMIT_WINDOW_SECONDS:-60}
+      - RATE_LIMIT_AI=${RATE_LIMIT_AI:-10}
+      - RATE_LIMIT_AI_WINDOW_SECONDS=${RATE_LIMIT_AI_WINDOW_SECONDS:-60}
     volumes:
       - di_data:/app/data
     depends_on:
@@ -21,6 +26,7 @@ services:
       - "5173:5173"
     environment:
       - VITE_PROXY_TARGET=http://api:8000
+      - VITE_API_KEY=${API_KEY:-dev-api-key-change-me}
     depends_on:
       api:
         condition: service_started
@@ -40,9 +46,6 @@ services:
       retries: 6
       start_period: 20s
 
-  # One-shot init: pulls the configured model if not already present.
-  # Runs to completion before the API starts; safe to re-run (ollama pull
-  # is idempotent when the model is already cached in the volume).
   ollama-init:
     image: ollama/ollama:latest
     volumes:
