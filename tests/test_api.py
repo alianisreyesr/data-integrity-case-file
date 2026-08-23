@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("API_KEY", "test-api-key")
 
 from app.main import app
-from app.database import init_db
+from app.database import init_db_sync
 import app.security as security_mod
 
 security_mod.API_KEY = "test-api-key"
@@ -24,7 +24,7 @@ def setup_db(tmp_path, monkeypatch):
     import app.database as db_mod
 
     db_mod.DB_PATH = db
-    init_db()
+    init_db_sync()
     yield
 
 
@@ -44,6 +44,7 @@ def test_health_public():
     r = client.get("/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+    assert r.json().get("async") is True
 
 
 def test_summary_requires_api_key():
@@ -122,7 +123,6 @@ def test_update_case_status_and_close():
 
 def test_invalid_case_status_transition():
     case_id = _create_case()
-    # intake cannot jump directly to capa_formulation
     r = client.patch(
         f"/cases/{case_id}/status",
         json={"status": "capa_formulation"},

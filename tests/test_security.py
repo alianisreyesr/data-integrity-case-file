@@ -1,6 +1,5 @@
 """Security-focused tests: API key and rate limiting."""
 import os
-import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,11 +7,10 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("API_KEY", "test-api-key")
 
 from app.main import app
-from app.database import init_db
+from app.database import init_db_sync
 import app.security as security_mod
 
 security_mod.API_KEY = "test-api-key"
-# Tight limits for rate-limit test
 security_mod.RATE_LIMIT_DEFAULT = 5
 security_mod.RATE_LIMIT_WINDOW = 60
 security_mod._limiter = security_mod.SlidingWindowLimiter()
@@ -28,8 +26,7 @@ def setup_db(tmp_path, monkeypatch):
     import app.database as db_mod
 
     db_mod.DB_PATH = db
-    init_db()
-    # Reset limiter between tests
+    init_db_sync()
     security_mod._limiter = security_mod.SlidingWindowLimiter()
     yield
 
