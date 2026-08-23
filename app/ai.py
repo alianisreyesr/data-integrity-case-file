@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from typing import List
+from typing import List, Literal
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -18,6 +18,19 @@ from pydantic import BaseModel, ValidationError
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 PROMPT_VERSION = "ai-gap-triage-v1"
+
+ALCOA_ATTRIBUTE = Literal[
+    "Attributable",
+    "Legible",
+    "Contemporaneous",
+    "Original",
+    "Accurate",
+    "Complete",
+    "Consistent",
+    "Enduring",
+    "Available",
+]
+RISK_LEVEL = Literal["low", "medium", "high"]
 
 SYSTEM_PROMPT = (
     "You are an assistive data-integrity triage tool for a portfolio prototype. "
@@ -32,8 +45,8 @@ SYSTEM_PROMPT = (
 
 
 class AiGapSuggestion(BaseModel):
-    attribute: str
-    risk_level: str
+    attribute: ALCOA_ATTRIBUTE
+    risk_level: RISK_LEVEL
     rationale: str
 
 
@@ -75,7 +88,7 @@ def generate_gap_suggestions(title: str, system_name: str, signal_type: str) -> 
         parsed = json.loads(content)
         return AiGapResponse(**parsed)
     except (json.JSONDecodeError, ValidationError) as exc:
-        raise AiUnavailableError(f"Model returned invalid JSON: {exc}") from exc
+        raise AiUnavailableError(f"Model returned invalid JSON or unsupported values: {exc}") from exc
 
 
 def hash_response(payload: dict) -> str:
