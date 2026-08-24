@@ -2,6 +2,8 @@
 
 <div align="center">
 
+[![CI](https://github.com/alianisreyesr/data-integrity-case-file/actions/workflows/ci.yml/badge.svg)](https://github.com/alianisreyesr/data-integrity-case-file/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/alianisreyesr/data-integrity-case-file/actions/workflows/codeql.yml/badge.svg)](https://github.com/alianisreyesr/data-integrity-case-file/actions/workflows/codeql.yml)
 [![Status](https://img.shields.io/badge/Status-Active%20Portfolio%20Project-2E7D32?style=flat-square)](https://github.com/alianisreyesr/data-integrity-case-file)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -15,7 +17,7 @@
 
 *Portfolio-safe prototype — synthetic data only*
 
-[Roadmap](docs/ROADMAP.md) · [Regulatory References](docs/REGULATORY_REFERENCES.md) · [Investigation playbook](docs/INVESTIGATION_PLAYBOOK.md) · [AI Assistant Docs](docs/AI_ASSISTANT.md) · [Profile](https://github.com/alianisreyesr)
+[Screenshots](#portfolio-preview) · [Quick start](#quick-start) · [Case study](docs/CASE_STUDY.md) · [Investigation playbook](docs/INVESTIGATION_PLAYBOOK.md) · [AI Assistant](docs/AI_ASSISTANT.md) · [Security](SECURITY.md)
 
 </div>
 
@@ -24,6 +26,14 @@
 > **Data boundary:** All case files and evidence notes are fictional. This is an educational workspace and must not be used for actual regulatory filings, batch releases, or official QA investigations.
 
 ---
+
+## Portfolio preview
+
+| Investigation summary | Synthetic case library |
+|---|---|
+| ![Synthetic data-integrity investigation metrics](docs/assets/dashboard.png) | ![Synthetic data-integrity case library](docs/assets/cases.png) |
+
+See the [case study](docs/CASE_STUDY.md) for the business problem, users, decisions, evidence, and production boundary.
 
 ## What This Is
 
