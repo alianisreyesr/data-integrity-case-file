@@ -4,7 +4,7 @@
 
 [![Status](https://img.shields.io/badge/Status-Active%20Portfolio%20Project-2E7D32?style=flat-square)](https://github.com/alianisreyesr/data-integrity-case-file)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL%20mode-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![Ollama](https://img.shields.io/badge/Ollama-llama3.2%3A3b-black?style=flat-square)](https://ollama.com/)
@@ -15,7 +15,7 @@
 
 *Portfolio-safe prototype — synthetic data only*
 
-[Roadmap](docs/ROADMAP.md) · [Regulatory References](docs/REGULATORY_REFERENCES.md) · [AI Assistant Docs](docs/AI_ASSISTANT.md) · [Profile](https://github.com/alianisreyesr)
+[Roadmap](docs/ROADMAP.md) · [Regulatory References](docs/REGULATORY_REFERENCES.md) · [Investigation playbook](docs/INVESTIGATION_PLAYBOOK.md) · [AI Assistant Docs](docs/AI_ASSISTANT.md) · [Profile](https://github.com/alianisreyesr)
 
 </div>
 
@@ -38,7 +38,7 @@ An investigative workspace modeling how quality and IT compliance professionals 
 
 Designed to demonstrate fluency in FDA, MHRA, and PIC/S data integrity frameworks through clean software architecture.
 
-**Stack:** Python 3.11 · FastAPI 0.115 · Pydantic v2 · SQLite (WAL) · React 19 · Docker Compose · Ollama (local AI) · GitHub Actions
+**Stack:** Python 3.11 · FastAPI 0.141 · Pydantic v2 · SQLite (WAL) · React 19 · Docker Compose · Ollama (local AI) · GitHub Actions
 
 ---
 
@@ -101,7 +101,7 @@ ollama pull llama3.2:3b
 
 # 2. Install dependencies
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 # 3. Seed synthetic data
 python data/seed.py
@@ -229,7 +229,7 @@ data-integrity-case-file/
 | [Quality Deviation Risk Monitor](https://github.com/alianisreyesr/quality-deviation-risk-monitor) | Deviation prioritization & scoring | 57 tests · Append-only audit |
 | [CSV Evidence Tracker](https://github.com/alianisreyesr/csv-evidence-tracker) | RTM & IQ/OQ/PQ execution patterns | ALCOA+ verified evidence |
 | [CSA Assurance Planner](https://github.com/alianisreyesr/csa-assurance-planner) | Risk-based software assurance planning | FDA CSA alignment |
-| [GxP Batch Data Pipeline](https://github.com/alianisreyesr/gxp-batch-data-pipeline) | Batch manufacturing data pipeline | DuckDB · dbt · Great Expectations |
+| [GxP Batch Data Pipeline](https://github.com/alianisreyesr/gxp-batch-data-pipeline) | Batch manufacturing data pipeline | DuckDB · dbt · quality gates |
 
 ---
 

@@ -8,11 +8,6 @@ os.environ.setdefault("API_KEY", "test-api-key")
 from app.main import app
 import app.security as security_mod
 
-security_mod.API_KEY = "test-api-key"
-security_mod.RATE_LIMIT_DEFAULT = 5
-security_mod.RATE_LIMIT_WINDOW = 60
-security_mod._limiter = security_mod.SlidingWindowLimiter()
-
 client = TestClient(app)
 AUTH = {"X-API-Key": "test-api-key"}
 
@@ -34,6 +29,7 @@ def test_health_does_not_require_api_key():
 
 def test_rate_limit_exceeded_returns_429():
     security_mod.RATE_LIMIT_DEFAULT = 3
+    security_mod.RATE_LIMIT_WINDOW = 60
     security_mod._limiter = security_mod.SlidingWindowLimiter()
     for _ in range(3):
         r = client.get("/summary", headers=AUTH)

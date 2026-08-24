@@ -11,11 +11,16 @@ os.environ.setdefault("API_KEY", "test-api-key")
 def setup_db(tmp_path, monkeypatch):
     db_path = str(tmp_path / "test.db")
     monkeypatch.setenv("DB_PATH", db_path)
+    monkeypatch.setenv("API_KEY", "test-api-key")
 
     import app.database as db_mod
     import app.security as security_mod
 
     security_mod.API_KEY = "test-api-key"
+    security_mod.RATE_LIMIT_DEFAULT = 10_000
+    security_mod.RATE_LIMIT_AI = 10_000
+    security_mod.RATE_LIMIT_WINDOW = 60
+    security_mod._limiter = security_mod.SlidingWindowLimiter()
 
     async def _reset():
         await db_mod.disconnect()
