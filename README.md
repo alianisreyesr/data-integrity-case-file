@@ -258,12 +258,6 @@ pytest tests/ --cov=app --cov-report=term-missing
 
 ---
 
-## Resumen en Español
-
-Espacio de trabajo educativo para **investigaciones de integridad de datos** bajo el marco ALCOA+: captura de hallazgos → análisis de brechas → registro de evidencias de pistas de auditoría → formulación de CAPA → cierre de calidad. Incluye una capa de **IA local** (Ollama, `llama3.2:3b`) que sugiere atributos ALCOA+ a investigar — toda sugerencia requiere revisión humana explícita antes de registrarse. La API usa **X-API-Key** y rate limiting; los datos son sintéticos y no certifican cumplimiento oficial.
-
----
-
 <div align="center">
 
 Built by [Alianis Reyes-Reyes](https://github.com/alianisreyesr) · [LinkedIn](https://www.linkedin.com/in/alianis-reyes-reyes/) · [Portfolio](https://poplme.co/hash/aJvjFE0Z/1/es)
