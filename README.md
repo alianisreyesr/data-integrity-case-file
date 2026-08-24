@@ -164,18 +164,14 @@ All endpoints below except `GET /health` require **`X-API-Key`**. Write operatio
 
 The local AI assistant uses `llama3.2:3b` via Ollama running **entirely on your machine** — no data leaves your environment.
 
-```
-User opens case → POST /ai-suggest-gaps
-                      ↓
-              ai.py calls Ollama /api/chat
-                      ↓
-         LLM returns JSON: [{attribute, risk_level, rationale}]
-                      ↓
-         Response hashed (SHA-256) + stored in ai_suggestions
-                      ↓
-     Qualified human reviews each item: accepted / rejected / modified
-                      ↓
-              Decision logged to audit_log
+```mermaid
+flowchart TB
+  A["User opens a case"] --> B["POST /ai-suggest-gaps"]
+  B --> C["ai.py calls Ollama /api/chat"]
+  C --> D["Model returns structured JSON suggestions"]
+  D --> E["Hash response with SHA-256 and store it"]
+  E --> F["Qualified human accepts, rejects, or modifies each item"]
+  F --> G["Record the decision in audit_log"]
 ```
 
 The AI **never writes directly to case records**. Every suggestion requires explicit human action before any gap is recorded. The hash ensures the stored response is bitwise-identical to what the model returned.
@@ -186,34 +182,18 @@ See [`docs/AI_ASSISTANT.md`](docs/AI_ASSISTANT.md) for the full design rationale
 
 ## Project Structure
 
-```
-data-integrity-case-file/
-├── app/
-│   ├── main.py              # FastAPI app, lifespan, middleware, routers
-│   ├── security.py          # API key, rate limit, security headers
-│   ├── router.py            # Core REST endpoints
-│   ├── models.py            # Pydantic v2 request/response models
-│   ├── database.py          # SQLite connection + schema init (WAL mode)
-│   ├── ai.py                # Ollama client, prompt, response validation
-│   ├── ai_status.py         # GET /ai/status — readiness check
-│   └── ai_item_reviews.py   # Per-item human review endpoints + DB init
-├── data/
-│   └── seed.py              # Synthetic case data seeder
-├── tests/
-│   ├── test_api.py          # Core workflow endpoint tests
-│   ├── test_security.py     # API key + rate limit tests
-│   ├── test_ai.py           # AI module unit tests
-│   ├── test_ai_contract.py  # JSON contract / schema tests
-│   └── test_ai_status.py    # Ollama status endpoint tests
-├── docs/
-│   ├── AI_ASSISTANT.md
-│   ├── REGULATORY_REFERENCES.md
-│   ├── ROADMAP.md
-│   └── FRONTEND_AI_AUDIT_AND_ROADMAP.md
-├── frontend/                # React 19 investigation board
-├── Dockerfile               # Non-root appuser
-├── docker-compose.yml
-└── requirements.txt
+```mermaid
+flowchart TB
+  R["data-integrity-case-file"]
+  R --> A["app — FastAPI, security, database, AI, and review modules"]
+  A --> AA["main.py and router.py — application and REST endpoints"]
+  A --> AB["security.py and database.py — controls and SQLite persistence"]
+  A --> AC["ai modules — local inference, readiness, and human review"]
+  R --> D["data — synthetic case seeder"]
+  R --> T["tests — API, security, AI, contract, and status tests"]
+  R --> O["docs — AI design, references, roadmap, and frontend audit"]
+  R --> F["frontend — React investigation board"]
+  R --> P["Docker and Python dependency files"]
 ```
 
 ---
