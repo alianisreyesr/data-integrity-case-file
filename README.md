@@ -213,13 +213,13 @@ flowchart TB
 
 ## Regulated Portfolio Ecosystem
 
-| Project | Domain Focus | Evidence |
+| Project | Domain Focus | Status |
 |---------|-------------|----------|
-| [GxP Change Control](https://github.com/alianisreyesr/gxp-change-control) | Controlled change lifecycle & approvals | v1.0.0 · 68 tests · CI/CD |
-| [Quality Deviation Risk Monitor](https://github.com/alianisreyesr/quality-deviation-risk-monitor) | Deviation prioritization & scoring | 57 tests · Append-only audit |
-| [CSV Evidence Tracker](https://github.com/alianisreyesr/csv-evidence-tracker) | RTM & IQ/OQ/PQ execution patterns | ALCOA+ verified evidence |
-| [CSA Assurance Planner](https://github.com/alianisreyesr/csa-assurance-planner) | Risk-based software assurance planning | FDA CSA alignment |
-| [GxP Batch Data Pipeline](https://github.com/alianisreyesr/gxp-batch-data-pipeline) | Batch manufacturing data pipeline | DuckDB · dbt · quality gates |
+| **[Quality Deviation Risk Monitor](https://github.com/alianisreyesr/quality-deviation-risk-monitor)** | Deviation prioritization & explainable risk scoring | ✅ Active · 112 tests |
+| **[CSV Evidence Tracker](https://github.com/alianisreyesr/csv-evidence-tracker)** | Requirements traceability, IQ/OQ/PQ test execution, audit trail | ✅ Active · 27 tests |
+| **[GxP Change Control](https://github.com/alianisreyesr/gxp-change-control)** | Controlled change lifecycle & approvals | ✅ Active · 68 tests |
+| **[CSA Assurance Planner](https://github.com/alianisreyesr/csa-assurance-planner)** | Risk-based software assurance planning, FDA CSA alignment | ✅ Active |
+| **[GxP Batch Data Pipeline](https://github.com/alianisreyesr/gxp-batch-data-pipeline)** | Batch manufacturing pipeline — DuckDB · dbt · quality gates | ✅ Active · 12 tests |
 
 ---
 
@@ -241,5 +241,7 @@ pytest tests/ --cov=app --cov-report=term-missing
 <div align="center">
 
 Built by [Alianis Reyes-Reyes](https://github.com/alianisreyesr) · [LinkedIn](https://www.linkedin.com/in/alianis-reyes-reyes/) · [Portfolio](https://poplme.co/hash/aJvjFE0Z/1/es)
+
+Information Systems @ UPRM · Eli Lilly Tech@Lilly Alumni
 
 </div>
