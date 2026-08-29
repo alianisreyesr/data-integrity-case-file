@@ -152,9 +152,7 @@ All endpoints below except `GET /health` require **`X-API-Key`**. Write operatio
 | `GET` | `/ai/status` | Ollama service + model availability check |
 | `POST` | `/cases/{id}/ai-suggest-gaps` | Generate ALCOA+ gap suggestions (local LLM; stricter rate limit) |
 | `GET` | `/cases/{id}/ai-suggestions` | List all AI suggestions for a case |
-| `POST` | `/ai-suggestions/{id}/review` | Accept / reject / modify full suggestion set |
-| `GET` | `/ai-suggestions/{id}/items` | List per-attribute suggestions with review status |
-| `POST` | `/ai-suggestions/{id}/items/{idx}/review` | Review a single suggestion item |
+| `POST` | `/ai-suggestions/{id}/review` | Accept / reject / modify a suggestion (one-time; accepting writes ALCOA+ gaps) |
 
 > **Interactive docs:** `http://localhost:8000/docs` (Swagger UI)
 
@@ -170,11 +168,11 @@ flowchart TB
   B --> C["ai.py calls Ollama /api/chat"]
   C --> D["Model returns structured JSON suggestions"]
   D --> E["Hash response with SHA-256 and store it"]
-  E --> F["Qualified human accepts, rejects, or modifies each item"]
-  F --> G["Record the decision in audit_log"]
+  E --> F["Qualified human accepts, rejects, or modifies the suggestion set"]
+  F --> G["Accept: write one alcoa_gaps row per attribute + audit_log entry.\nReject/modify: audit_log entry only, no gap written."]
 ```
 
-The AI **never writes directly to case records**. Every suggestion requires explicit human action before any gap is recorded. The hash ensures the stored response is bitwise-identical to what the model returned.
+The AI **never writes directly to case records**. Every suggestion requires explicit human action before any gap is recorded, a suggestion can only be reviewed once, and the SHA-256 is recomputed and checked against the stored response on every read — not just recorded once and forgotten — so a mismatch is surfaced (`integrity_verified: false`) instead of silently trusted.
 
 See [`docs/AI_ASSISTANT.md`](docs/AI_ASSISTANT.md) for the full design rationale.
 

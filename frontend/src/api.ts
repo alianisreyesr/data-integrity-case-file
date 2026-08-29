@@ -11,6 +11,7 @@ import type {
   Summary,
   AiSuggestionOut,
   AiSuggestionReviewCreate,
+  AiSuggestionReviewResult,
 } from "./types";
 import { UserFacingError, messageForApiFailure } from "./errors";
 
@@ -97,7 +98,7 @@ export const api = {
   listAiSuggestions: (caseId: number) =>
     request<AiSuggestionOut[]>(`/cases/${caseId}/ai-suggestions`),
   reviewAiSuggestion: (suggestionId: number, body: AiSuggestionReviewCreate, actor: string) =>
-    request<AiSuggestionOut>(`/ai-suggestions/${suggestionId}/review`, {
+    request<AiSuggestionReviewResult>(`/ai-suggestions/${suggestionId}/review`, {
       method: "POST",
       body: JSON.stringify(body),
       headers: { "x-actor": actor },
