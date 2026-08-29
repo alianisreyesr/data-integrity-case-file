@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .ai_item_reviews import router as ai_item_review_router
 from .ai_status import router as ai_status_router
 from .database import disconnect, init_db
 from .router import router
@@ -48,4 +47,3 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(ai_status_router)
-app.include_router(ai_item_review_router)

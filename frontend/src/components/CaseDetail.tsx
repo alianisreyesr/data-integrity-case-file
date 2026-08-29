@@ -121,8 +121,9 @@ export default function CaseDetail({ caseId, onBack }: Props) {
         { human_action: action, reviewed_by: aiActor || "portfolio_user" },
         aiActor || "portfolio_user"
       );
-      const updated = await api.listAiSuggestions(caseId);
-      setAiSuggestions(updated);
+      // An "accepted" review writes ALCOA+ gaps server-side, so a full
+      // refresh (not just the suggestions list) picks those up too.
+      refresh();
     } catch (err) {
       setAiError(String(err));
     }
@@ -275,6 +276,12 @@ export default function CaseDetail({ caseId, onBack }: Props) {
               Model: {s.model_name} ({s.model_provider}) · Prompt version: {s.prompt_version} ·{" "}
               <time dateTime={s.generated_at}>{new Date(s.generated_at).toISOString()}</time>
             </p>
+            {!s.integrity_verified && (
+              <p className="error" role="alert">
+                Integrity check failed: this suggestion's stored response no longer matches its
+                recorded hash. Do not act on it.
+              </p>
+            )}
             <table>
               <caption className="sr-only">AI-suggested ALCOA+ attributes pending human review</caption>
               <thead>

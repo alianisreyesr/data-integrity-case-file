@@ -178,8 +178,29 @@ class AiSuggestionOut(BaseModel):
     human_action: Optional[str] = None
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[str] = None
+    integrity_verified: bool = Field(
+        default=True,
+        description=(
+            "True when the stored response's SHA-256 still matches response_hash "
+            "(recomputed on every read). False signals the persisted record no "
+            "longer matches what the model returned."
+        ),
+    )
 
 
 class AiSuggestionReviewCreate(BaseModel):
     human_action: AI_HUMAN_ACTIONS
     reviewed_by: str = Field(..., min_length=2, max_length=80)
+
+
+class AiSuggestionReviewResult(BaseModel):
+    """Response for POST /ai-suggestions/{id}/review.
+
+    An 'accepted' review writes one alcoa_gaps row per suggested attribute
+    (gap_found=True, observation carries the AI rationale and risk level) so
+    acceptance is what the README describes: a gated, auditable write to the
+    case record, not just a status flip on the suggestion itself.
+    """
+
+    suggestion: AiSuggestionOut
+    gaps_recorded: List[AlcoaGapOut] = Field(default_factory=list)

@@ -87,23 +87,6 @@ CREATE TABLE IF NOT EXISTS ai_suggestions (
     reviewed_at     TEXT
 );
 
-CREATE TABLE IF NOT EXISTS ai_suggestion_item_reviews (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    suggestion_id INTEGER NOT NULL REFERENCES ai_suggestions(id),
-    item_index INTEGER NOT NULL,
-    original_attribute TEXT NOT NULL,
-    original_risk_level TEXT NOT NULL,
-    original_rationale TEXT NOT NULL,
-    action TEXT NOT NULL,
-    final_attribute TEXT NOT NULL,
-    final_risk_level TEXT NOT NULL,
-    final_rationale TEXT NOT NULL,
-    reviewer_comment TEXT,
-    reviewed_by TEXT NOT NULL,
-    reviewed_at TEXT NOT NULL,
-    UNIQUE(suggestion_id, item_index)
-);
-
 CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
 CREATE INDEX IF NOT EXISTS idx_alcoa_gaps_case_id ON alcoa_gaps(case_id);
 CREATE INDEX IF NOT EXISTS idx_evidence_case_id ON evidence_log(case_id);
@@ -111,7 +94,6 @@ CREATE INDEX IF NOT EXISTS idx_capas_case_id ON capas(case_id);
 CREATE INDEX IF NOT EXISTS idx_capas_status ON capas(status);
 CREATE INDEX IF NOT EXISTS idx_audit_case_id ON audit_log(case_id);
 CREATE INDEX IF NOT EXISTS idx_ai_suggestions_case_id ON ai_suggestions(case_id);
-CREATE INDEX IF NOT EXISTS idx_ai_item_reviews_suggestion ON ai_suggestion_item_reviews(suggestion_id);
 """
 
 # Process-wide shared connection (opened in lifespan)

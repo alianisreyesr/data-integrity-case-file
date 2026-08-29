@@ -133,9 +133,17 @@ export interface AiSuggestionOut {
   human_action: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  /** False if the stored response no longer matches its recorded SHA-256. */
+  integrity_verified: boolean;
 }
 
 export interface AiSuggestionReviewCreate {
   human_action: "accepted" | "rejected" | "modified";
   reviewed_by: string;
+}
+
+export interface AiSuggestionReviewResult {
+  suggestion: AiSuggestionOut;
+  /** Gaps written to the case's ALCOA+ record — non-empty only when accepted. */
+  gaps_recorded: AlcoaGapOut[];
 }

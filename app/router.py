@@ -23,6 +23,7 @@ from .models import (
     CAPA_STATUS_TRANSITIONS,
     AiSuggestionOut,
     AiSuggestionReviewCreate,
+    AiSuggestionReviewResult,
     AlcoaGapCreate,
     AlcoaGapOut,
     AuditEntry,
@@ -357,6 +358,12 @@ async def audit_log(
 
 def _serialize_ai_suggestion(row) -> dict:
     payload = json.loads(row["response_json"])
+    # Recompute the SHA-256 over the stored payload and compare against the
+    # hash recorded at generation time. hash_response() uses sort_keys=True,
+    # so this is stable across the json.dumps/json.loads round trip and
+    # actually detects tampering or corruption rather than just storing a
+    # hash that's never checked again.
+    integrity_verified = hash_response(payload) == row["response_hash"]
     return {
         "id": row["id"],
         "case_id": row["case_id"],
@@ -369,6 +376,7 @@ def _serialize_ai_suggestion(row) -> dict:
         "human_action": row["human_action"],
         "reviewed_by": row["reviewed_by"],
         "reviewed_at": row["reviewed_at"],
+        "integrity_verified": integrity_verified,
     }
 
 
@@ -418,28 +426,78 @@ async def list_ai_suggestions(case_id: int, db: aiosqlite.Connection = Depends(g
     return [_serialize_ai_suggestion(r) for r in rows]
 
 
-@router.post("/ai-suggestions/{suggestion_id}/review", response_model=AiSuggestionOut)
+@router.post("/ai-suggestions/{suggestion_id}/review", response_model=AiSuggestionReviewResult)
 async def review_ai_suggestion(
     suggestion_id: int,
     body: AiSuggestionReviewCreate,
     x_actor: str = Header(...),
     db: aiosqlite.Connection = Depends(get_db),
 ):
+    """Record a human review decision on an AI suggestion.
+
+    - 'accepted' writes one alcoa_gaps row per suggested attribute — this is
+      the actual gated write the README describes ("every suggestion
+      requires explicit human action before any gap is recorded").
+    - 'rejected' / 'modified' record the decision but write nothing to
+      alcoa_gaps; a modified assessment goes through the normal manual
+      "Record gap assessment" form so the human's edited wording is what
+      ends up on the record, not a second copy of the AI's rationale.
+    - A suggestion can only be reviewed once (idempotency guard below) —
+      re-reviewing previously silently overwrote human_action/reviewed_by
+      with no trace of the prior decision, which doesn't fit an
+      append-only audit trail.
+    """
     async with db.execute("SELECT * FROM ai_suggestions WHERE id=?", (suggestion_id,)) as cur:
         row = await cur.fetchone()
     if not row:
         raise HTTPException(404, "AI suggestion not found")
     await _require_open_case(db, row["case_id"])
+
+    if row["human_action"] is not None:
+        raise HTTPException(
+            409,
+            f"This AI suggestion was already reviewed ({row['human_action']} "
+            f"by {row['reviewed_by']} at {row['reviewed_at']})",
+        )
+
+    payload = json.loads(row["response_json"])
+    if hash_response(payload) != row["response_hash"]:
+        raise HTTPException(
+            500,
+            "Stored AI suggestion failed integrity verification (SHA-256 mismatch); "
+            "refusing to act on it. This indicates data corruption or tampering.",
+        )
+
     now = _now()
+    gaps_recorded: List[dict] = []
+    if body.human_action == "accepted":
+        for item in payload.get("suggestions", []):
+            observation = (
+                f"AI-suggested ({item['risk_level']} risk, accepted by reviewer): "
+                f"{item['rationale']}"
+            )
+            await db.execute(
+                "INSERT INTO alcoa_gaps (case_id,attribute,gap_found,observation,assessed_by,assessed_at) "
+                "VALUES (?,?,?,?,?,?)",
+                (row["case_id"], item["attribute"], 1, observation, body.reviewed_by, now),
+            )
+            async with db.execute("SELECT last_insert_rowid()") as cur:
+                gap_id = (await cur.fetchone())[0]
+            async with db.execute("SELECT * FROM alcoa_gaps WHERE id=?", (gap_id,)) as cur:
+                gaps_recorded.append(dict(await cur.fetchone()))
+
     await db.execute(
         "UPDATE ai_suggestions SET human_action=?, reviewed_by=?, reviewed_at=? WHERE id=?",
         (body.human_action, body.reviewed_by, now, suggestion_id),
     )
     await _audit(
         db, x_actor, "ai_suggestion_reviewed", row["case_id"],
-        f"action={body.human_action}",
+        f"action={body.human_action} gaps_recorded={len(gaps_recorded)}",
     )
     await db.commit()
     async with db.execute("SELECT * FROM ai_suggestions WHERE id=?", (suggestion_id,)) as cur:
         updated = await cur.fetchone()
-    return _serialize_ai_suggestion(updated)
+    return {
+        "suggestion": _serialize_ai_suggestion(updated),
+        "gaps_recorded": gaps_recorded,
+    }
