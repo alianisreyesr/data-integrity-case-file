@@ -10,6 +10,9 @@ services:
       - OLLAMA_TIMEOUT_SECONDS=180
       - ENVIRONMENT=production
       - API_KEY=${API_KEY:?Set API_KEY to a private value (see README)}
+      # Comma-separated IPs/CIDRs of reverse proxies whose X-Forwarded-For is trusted.
+      # Empty (default): the header is ignored and the socket peer is rate-limited.
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-}
       - RATE_LIMIT_DEFAULT=${RATE_LIMIT_DEFAULT:-120}
       - RATE_LIMIT_WINDOW_SECONDS=${RATE_LIMIT_WINDOW_SECONDS:-60}
       - RATE_LIMIT_AI=${RATE_LIMIT_AI:-10}
@@ -34,7 +37,7 @@ services:
     restart: unless-stopped
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.14
     ports:
       - "127.0.0.1:11434:11434"
     volumes:
@@ -48,7 +51,7 @@ services:
       start_period: 20s
 
   ollama-init:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.14
     volumes:
       - ollama_data:/root/.ollama
     environment:

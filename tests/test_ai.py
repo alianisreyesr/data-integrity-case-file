@@ -4,10 +4,10 @@ from fastapi.testclient import TestClient
 
 os.environ.setdefault("API_KEY", "test-api-key")
 
-from app.main import app
 import app.router as router_module
-from app import ai as ai_module
 import app.security as security_mod
+from app import ai as ai_module
+from app.main import app
 
 security_mod.API_KEY = "test-api-key"
 

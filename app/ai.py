@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from typing import List, Literal
+from typing import Literal
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -46,7 +46,7 @@ class AiGapSuggestion(BaseModel):
 
 
 class AiGapResponse(BaseModel):
-    suggestions: List[AiGapSuggestion]
+    suggestions: list[AiGapSuggestion]
     limitations: str
 
 

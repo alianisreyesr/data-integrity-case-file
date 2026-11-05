@@ -7,7 +7,7 @@
 [![Status](https://img.shields.io/badge/Status-Active%20Portfolio%20Project-2E7D32?style=flat-square)](https://github.com/alianisreyesr/data-integrity-case-file)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL%20mode-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![Ollama](https://img.shields.io/badge/Ollama-llama3.2%3A3b-black?style=flat-square)](https://ollama.com/)
 [![Compliance](https://img.shields.io/badge/Guidance-ALCOA%2B_%2F_21_CFR_11-2E7D32?style=flat-square)](docs/REGULATORY_REFERENCES.md)
@@ -48,7 +48,7 @@ An investigative workspace modeling how quality and IT compliance professionals 
 
 Designed to demonstrate fluency in FDA, MHRA, and PIC/S data integrity frameworks through clean software architecture.
 
-**Stack:** Python 3.11 · FastAPI 0.141 · Pydantic v2 · SQLite (WAL) · React 19 · Docker Compose · Ollama (local AI) · GitHub Actions
+**Stack:** Python 3.11 · FastAPI 0.141 · Pydantic v2 · SQLite (WAL) · React 18 · Docker Compose · Ollama (local AI) · GitHub Actions
 
 ---
 
@@ -60,7 +60,7 @@ This is **not** production IAM. Controls are intentional for a portfolio prototy
 |---------|----------|
 | **API key** | Header `X-API-Key` required on all routes except `/health`, `/docs`, `/redoc`, `/openapi.json` |
 | **Default key** | `dev-api-key-change-me` is accepted only when `ENVIRONMENT` is development (the default for local runs); Docker Compose requires a private `API_KEY` and the API refuses to start with the default otherwise. The key is never baked into the JS bundle: the frontend nginx adds it when proxying `/api`. |
-| **Rate limit** | 120 req/min per client (default); AI suggest endpoint 10 req/min |
+| **Rate limit** | 120 req/min per client (default); AI suggest endpoint 10 req/min. Clients are identified by socket peer; `X-Forwarded-For` is honoured only when the peer is listed in `TRUSTED_PROXIES`. Tracked clients are capped in memory. |
 | **Security headers** | `X-Frame-Options`, `X-Content-Type-Options`, CSP, `Referrer-Policy` |
 | **CORS** | Allowlist: `localhost:5173` / `127.0.0.1:5173` |
 | **Audit actor** | Mutations still require `X-Actor` for the application audit log |
@@ -77,7 +77,7 @@ curl -H "X-API-Key: $API_KEY" -H "X-Actor: A.Reyes" \
   http://localhost:8000/cases
 ```
 
-Env vars (API / Compose): `API_KEY`, `RATE_LIMIT_DEFAULT`, `RATE_LIMIT_WINDOW_SECONDS`, `RATE_LIMIT_AI`, `RATE_LIMIT_AI_WINDOW_SECONDS`.
+Env vars (API / Compose): `API_KEY`, `RATE_LIMIT_DEFAULT`, `RATE_LIMIT_WINDOW_SECONDS`, `RATE_LIMIT_AI`, `RATE_LIMIT_AI_WINDOW_SECONDS`, `TRUSTED_PROXIES` (comma-separated IPs/CIDRs of reverse proxies; empty by default).
 
 ---
 
@@ -204,7 +204,7 @@ flowchart TB
 | Phase 1 | Case, Finding, Evidence & CAPA domain models + AI layer | ✅ Complete |
 | Phase 2 | FastAPI endpoints & synthetic case library | ✅ Complete |
 | Phase 2.1 | API key, rate limits, security headers, non-root Docker | ✅ Complete |
-| Phase 3 | Investigation board & detail reviewer UI (React 19) | ✅ Complete |
+| Phase 3 | Investigation board & detail reviewer UI (React 18) | ✅ Complete |
 | Phase 4 | Extended test suite, CodeQL scanning & hardened Docker delivery | ✅ Complete |
 
 ---

@@ -3,24 +3,23 @@ from __future__ import annotations
 import json
 import random
 import string
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 
 import aiosqlite
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from .ai import (
-    AiUnavailableError,
     OLLAMA_MODEL,
     PROMPT_VERSION,
+    AiUnavailableError,
     generate_gap_suggestions,
     hash_response,
 )
 from .database import get_db
 from .models import (
+    CAPA_STATUS_TRANSITIONS,
     CASE_STATUS_TRANSITIONS,
     CASE_STATUSES,
-    CAPA_STATUS_TRANSITIONS,
     AiSuggestionOut,
     AiSuggestionReviewCreate,
     AiSuggestionReviewResult,
@@ -49,8 +48,15 @@ def actor_header(x_actor: str = Header(...)) -> str:
     return value
 
 
+def _need(row: aiosqlite.Row | None) -> aiosqlite.Row:
+    """Narrow a ``fetchone()`` result; a missing row here is an internal error."""
+    if row is None:
+        raise HTTPException(status_code=500, detail="Internal error: expected row not found")
+    return row
+
+
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _ref(prefix: str, n: int = 6) -> str:
@@ -61,8 +67,8 @@ async def _audit(
     db: aiosqlite.Connection,
     actor: str,
     action: str,
-    case_id: Optional[int] = None,
-    detail: Optional[str] = None,
+    case_id: int | None = None,
+    detail: str | None = None,
 ) -> None:
     await db.execute(
         "INSERT INTO audit_log (case_id, actor, action, detail, created_at) VALUES (?,?,?,?,?)",
@@ -99,17 +105,17 @@ async def health():
 @router.get("/summary", response_model=SummaryOut)
 async def summary(db: aiosqlite.Connection = Depends(get_db)):
     async with db.execute("SELECT COUNT(*) FROM cases") as c:
-        total = (await c.fetchone())[0]
+        total = _need(await c.fetchone())[0]
     async with db.execute("SELECT COUNT(*) FROM cases WHERE status != 'closed'") as c:
-        open_c = (await c.fetchone())[0]
+        open_c = _need(await c.fetchone())[0]
     async with db.execute("SELECT COUNT(*) FROM cases WHERE status = 'closed'") as c:
-        closed = (await c.fetchone())[0]
+        closed = _need(await c.fetchone())[0]
     async with db.execute("SELECT COUNT(*) FROM alcoa_gaps WHERE gap_found = 1") as c:
-        gaps = (await c.fetchone())[0]
+        gaps = _need(await c.fetchone())[0]
     async with db.execute("SELECT COUNT(*) FROM capas") as c:
-        capas = (await c.fetchone())[0]
+        capas = _need(await c.fetchone())[0]
     async with db.execute("SELECT COUNT(*) FROM capas WHERE status = 'open'") as c:
-        open_capas = (await c.fetchone())[0]
+        open_capas = _need(await c.fetchone())[0]
     return SummaryOut(
         total_cases=total,
         open_cases=open_c,
@@ -120,9 +126,9 @@ async def summary(db: aiosqlite.Connection = Depends(get_db)):
     )
 
 
-@router.get("/cases", response_model=List[CaseOut])
+@router.get("/cases", response_model=list[CaseOut])
 async def list_cases(
-    status: Optional[CASE_STATUSES] = Query(None),
+    status: CASE_STATUSES | None = Query(None),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     if status:
@@ -149,12 +155,12 @@ async def create_case(
         (ref, body.title, body.system, body.signal_type, "intake", body.opened_by, now),
     )
     async with db.execute("SELECT id FROM cases WHERE case_ref=?", (ref,)) as cur:
-        case_id = (await cur.fetchone())[0]
+        case_id = _need(await cur.fetchone())[0]
     await _audit(db, x_actor, "case_created", case_id, f"ref={ref}")
     await db.commit()
     async with db.execute("SELECT * FROM cases WHERE id=?", (case_id,)) as cur:
         row = await cur.fetchone()
-    return dict(row)
+    return dict(_need(row))
 
 
 @router.get("/cases/{case_id}", response_model=CaseOut)
@@ -196,7 +202,7 @@ async def update_case_status(
     await db.commit()
     async with db.execute("SELECT * FROM cases WHERE id=?", (case_id,)) as cur:
         updated = await cur.fetchone()
-    return dict(updated)
+    return dict(_need(updated))
 
 
 @router.post("/cases/{case_id}/close", response_model=CaseOut)
@@ -210,7 +216,7 @@ async def close_case(
     )
 
 
-@router.get("/cases/{case_id}/alcoa-gaps", response_model=List[AlcoaGapOut])
+@router.get("/cases/{case_id}/alcoa-gaps", response_model=list[AlcoaGapOut])
 async def list_gaps(case_id: int, db: aiosqlite.Connection = Depends(get_db)):
     await _require_case(db, case_id)
     async with db.execute(
@@ -241,10 +247,10 @@ async def add_gap(
     await db.commit()
     async with db.execute("SELECT * FROM alcoa_gaps WHERE id=?", (gap_id,)) as cur:
         row = await cur.fetchone()
-    return dict(row)
+    return dict(_need(row))
 
 
-@router.get("/cases/{case_id}/evidence", response_model=List[EvidenceOut])
+@router.get("/cases/{case_id}/evidence", response_model=list[EvidenceOut])
 async def list_evidence(case_id: int, db: aiosqlite.Connection = Depends(get_db)):
     await _require_case(db, case_id)
     async with db.execute(
@@ -272,10 +278,10 @@ async def add_evidence(
     await db.commit()
     async with db.execute("SELECT * FROM evidence_log WHERE id=?", (eid,)) as cur:
         row = await cur.fetchone()
-    return dict(row)
+    return dict(_need(row))
 
 
-@router.get("/cases/{case_id}/capas", response_model=List[CapaOut])
+@router.get("/cases/{case_id}/capas", response_model=list[CapaOut])
 async def list_capas(case_id: int, db: aiosqlite.Connection = Depends(get_db)):
     await _require_case(db, case_id)
     async with db.execute(
@@ -304,7 +310,7 @@ async def add_capa(
     await db.commit()
     async with db.execute("SELECT * FROM capas WHERE id=?", (cid,)) as cur:
         row = await cur.fetchone()
-    return dict(row)
+    return dict(_need(row))
 
 
 @router.patch("/cases/{case_id}/capas/{capa_id}/status", response_model=CapaOut)
@@ -340,12 +346,12 @@ async def update_capa_status(
     await db.commit()
     async with db.execute("SELECT * FROM capas WHERE id=?", (capa_id,)) as cur:
         updated = await cur.fetchone()
-    return dict(updated)
+    return dict(_need(updated))
 
 
-@router.get("/audit-log", response_model=List[AuditEntry])
+@router.get("/audit-log", response_model=list[AuditEntry])
 async def audit_log(
-    case_id: Optional[int] = None,
+    case_id: int | None = None,
     db: aiosqlite.Connection = Depends(get_db),
 ):
     if case_id:
@@ -397,7 +403,7 @@ async def ai_suggest_gaps(
             case_row["title"], case_row["system"], case_row["signal_type"]
         )
     except AiUnavailableError as exc:
-        raise HTTPException(status_code=503, detail=f"AI assistant unavailable: {exc}")
+        raise HTTPException(status_code=503, detail=f"AI assistant unavailable: {exc}") from exc
     payload = result.model_dump()
     response_hash = hash_response(payload)
     now = _now()
@@ -420,7 +426,7 @@ async def ai_suggest_gaps(
     return _serialize_ai_suggestion(row)
 
 
-@router.get("/cases/{case_id}/ai-suggestions", response_model=List[AiSuggestionOut])
+@router.get("/cases/{case_id}/ai-suggestions", response_model=list[AiSuggestionOut])
 async def list_ai_suggestions(case_id: int, db: aiosqlite.Connection = Depends(get_db)):
     await _require_case(db, case_id)
     async with db.execute(
@@ -473,7 +479,7 @@ async def review_ai_suggestion(
         )
 
     now = _now()
-    gaps_recorded: List[dict] = []
+    gaps_recorded: list[dict] = []
     if body.human_action == "accepted":
         for item in payload.get("suggestions", []):
             observation = (
@@ -487,7 +493,7 @@ async def review_ai_suggestion(
             )
             gap_id = cursor.lastrowid
             async with db.execute("SELECT * FROM alcoa_gaps WHERE id=?", (gap_id,)) as cur:
-                gaps_recorded.append(dict(await cur.fetchone()))
+                gaps_recorded.append(dict(_need(await cur.fetchone())))
 
     await db.execute(
         "UPDATE ai_suggestions SET human_action=?, reviewed_by=?, reviewed_at=? WHERE id=?",

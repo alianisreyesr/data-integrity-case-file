@@ -31,7 +31,7 @@ app = FastAPI(
         "Requires header X-API-Key on all endpoints except /health. "
         "Shared aiosqlite connection (WAL) + async Ollama client."
     ),
-    version="0.4.1",
+    version="1.0.0",
     lifespan=lifespan,
 )
 

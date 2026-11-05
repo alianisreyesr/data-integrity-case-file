@@ -3,18 +3,20 @@
 Designed for the portfolio prototype:
 - X-API-Key required on all routes except /health (and OpenAPI docs)
 - Constant-time key comparison
-- Per-client sliding window rate limits (stricter on AI endpoints)
+- Per-client sliding window rate limits (stricter on AI endpoints); X-Forwarded-For
+  is honoured only when the direct peer is a configured trusted proxy
 - Baseline HTTP security headers on every response
 """
 from __future__ import annotations
 
+import ipaddress
 import os
 import secrets
 import time
-from collections import defaultdict, deque
-from typing import Callable, Deque, Dict, Optional
+from collections import deque
+from collections.abc import Callable
 
-from fastapi import Header, HTTPException, Request, status
+from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
@@ -27,7 +29,7 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 DEV_ENVIRONMENTS = frozenset({"dev", "development", "test", "testing", "local"})
 
 
-def ensure_api_key_configured(api_key: Optional[str] = None, environment: Optional[str] = None) -> None:
+def ensure_api_key_configured(api_key: str | None = None, environment: str | None = None) -> None:
     """Refuse to start with the public default key outside development."""
     key = API_KEY if api_key is None else api_key
     env = (ENVIRONMENT if environment is None else environment).strip().lower()
@@ -45,35 +47,79 @@ RATE_LIMIT_AI_WINDOW = int(os.getenv("RATE_LIMIT_AI_WINDOW_SECONDS", "60"))
 PUBLIC_PATHS = frozenset({"/health", "/docs", "/openapi.json", "/redoc"})
 
 
+def _parse_trusted_proxies(raw: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(item, strict=False))
+        except ValueError:
+            continue  # ignore malformed entries rather than trusting everything
+    return networks
+
+
+# Comma-separated IPs/CIDRs of reverse proxies allowed to set X-Forwarded-For.
+# Empty (default) means the header is never trusted and the socket peer is used.
+TRUSTED_PROXIES = _parse_trusted_proxies(os.getenv("TRUSTED_PROXIES", ""))
+
+
+def _as_ip(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    try:
+        return ipaddress.ip_address(value.strip())
+    except ValueError:
+        return None
+
+
+def _is_trusted(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    return any(ip in net for net in TRUSTED_PROXIES)
+
+
 def _client_id(request: Request) -> str:
+    peer = request.client.host if request.client and request.client.host else "unknown"
     forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    if request.client:
-        return request.client.host or "unknown"
-    return "unknown"
-
-
-async def require_api_key(x_api_key: Optional[str] = Header(None, alias=API_KEY_HEADER)) -> str:
-    if not x_api_key or not secrets.compare_digest(x_api_key, API_KEY):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key. Send header X-API-Key.",
-            headers={"WWW-Authenticate": "ApiKey"},
-        )
-    return x_api_key
+    peer_ip = _as_ip(peer)
+    if not forwarded or not TRUSTED_PROXIES or peer_ip is None or not _is_trusted(peer_ip):
+        return peer
+    # Walk the chain from the right: the first address that is not one of our
+    # trusted proxies is the real client. Anything further left is client-supplied.
+    for part in reversed(forwarded.split(",")):
+        ip = _as_ip(part)
+        if ip is None:
+            return peer  # malformed chain: fall back to the proxy address
+        if not _is_trusted(ip):
+            return str(ip)
+    return peer
 
 
 class SlidingWindowLimiter:
-    """In-memory sliding-window rate limiter. Suitable for single-process demo."""
+    """In-memory sliding-window rate limiter. Suitable for single-process demo.
 
-    def __init__(self) -> None:
-        self._hits: Dict[str, Deque[float]] = defaultdict(deque)
+    Memory is bounded: expired buckets are purged periodically and the number
+    of tracked keys is capped at ``max_keys`` (oldest keys are evicted first).
+    """
+
+    def __init__(self, max_keys: int = 10_000, sweep_every: int = 500) -> None:
+        self._hits: dict[str, deque[float]] = {}
+        self._max_keys = max_keys
+        self._sweep_every = sweep_every
+        self._calls = 0
+
+    def _sweep(self, now: float, window_seconds: int) -> None:
+        stale = [k for k, q in self._hits.items() if not q or q[-1] < now - window_seconds]
+        for k in stale:
+            del self._hits[k]
 
     def allow(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int, int]:
         now = time.monotonic()
+        self._calls += 1
+        if self._calls % self._sweep_every == 0 or len(self._hits) >= self._max_keys:
+            self._sweep(now, max(window_seconds, RATE_LIMIT_WINDOW, RATE_LIMIT_AI_WINDOW))
+        while len(self._hits) >= self._max_keys and key not in self._hits:
+            del self._hits[next(iter(self._hits))]  # evict oldest-inserted key
         window_start = now - window_seconds
-        q = self._hits[key]
+        q = self._hits.setdefault(key, deque())
         while q and q[0] < window_start:
             q.popleft()
         if len(q) >= limit:
@@ -88,13 +134,13 @@ _limiter = SlidingWindowLimiter()
 
 
 def _is_ai_path(path: str) -> bool:
-    return path.rstrip("/").endswith("ai-suggest-gaps") or "/ai-suggest-gaps" in path
+    return "/ai-suggest-gaps" in path
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path = request.url.path
-        if path in PUBLIC_PATHS or path.startswith("/docs") or path.startswith("/redoc"):
+        if path in PUBLIC_PATHS or path.startswith(("/docs", "/redoc")):
             return await call_next(request)
 
         client = _client_id(request)
@@ -131,9 +177,7 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         if (
             path in PUBLIC_PATHS
-            or path.startswith("/docs")
-            or path.startswith("/redoc")
-            or path.startswith("/openapi")
+            or path.startswith(("/docs", "/redoc", "/openapi"))
         ):
             return await call_next(request)
 

@@ -1,8 +1,8 @@
 # Multi-stage production image: build with Vite, serve with nginx
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 COPY . .
 # No API key is baked into the JS bundle: nginx adds X-API-Key server-side
 # (from the API_KEY env var at container start) when proxying /api.

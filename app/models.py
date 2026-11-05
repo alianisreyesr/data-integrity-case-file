@@ -1,8 +1,8 @@
 from __future__ import annotations
-from datetime import datetime, timezone
-from typing import List, Literal, Optional
-from pydantic import BaseModel, Field
 
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 ALCOA_ATTRIBUTES = Literal[
     "Attributable", "Legible", "Contemporaneous",
@@ -42,10 +42,6 @@ CAPA_STATUS_TRANSITIONS: dict[str, set[str]] = {
 }
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 # ── Case ──────────────────────────────────────────────────────────────────────
 
 class CaseCreate(BaseModel):
@@ -68,7 +64,7 @@ class CaseOut(BaseModel):
     status: str
     opened_by: str
     opened_at: str
-    closed_at: Optional[str] = None
+    closed_at: str | None = None
 
 
 # ── ALCOA+ Gap ────────────────────────────────────────────────────────────────
@@ -76,7 +72,7 @@ class CaseOut(BaseModel):
 class AlcoaGapCreate(BaseModel):
     attribute: ALCOA_ATTRIBUTES
     gap_found: bool
-    observation: Optional[str] = Field(None, max_length=500)
+    observation: str | None = Field(None, max_length=500)
     assessed_by: str = Field(..., min_length=2, max_length=80)
 
 
@@ -85,7 +81,7 @@ class AlcoaGapOut(BaseModel):
     case_id: int
     attribute: str
     gap_found: bool
-    observation: Optional[str]
+    observation: str | None
     assessed_by: str
     assessed_at: str
 
@@ -139,10 +135,10 @@ class CapaOut(BaseModel):
 
 class AuditEntry(BaseModel):
     id: int
-    case_id: Optional[int]
+    case_id: int | None
     actor: str
     action: str
-    detail: Optional[str]
+    detail: str | None
     created_at: str
 
 
@@ -172,12 +168,12 @@ class AiSuggestionOut(BaseModel):
     model_name: str
     model_provider: str
     prompt_version: str
-    suggestions: List[AiGapSuggestionOut]
+    suggestions: list[AiGapSuggestionOut]
     limitations: str
     generated_at: str
-    human_action: Optional[str] = None
-    reviewed_by: Optional[str] = None
-    reviewed_at: Optional[str] = None
+    human_action: str | None = None
+    reviewed_by: str | None = None
+    reviewed_at: str | None = None
     integrity_verified: bool = Field(
         default=True,
         description=(
@@ -203,4 +199,4 @@ class AiSuggestionReviewResult(BaseModel):
     """
 
     suggestion: AiSuggestionOut
-    gaps_recorded: List[AlcoaGapOut] = Field(default_factory=list)
+    gaps_recorded: list[AlcoaGapOut] = Field(default_factory=list)

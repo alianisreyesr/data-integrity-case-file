@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from typing import Any, AsyncIterator, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import aiosqlite
 
@@ -97,7 +98,7 @@ CREATE INDEX IF NOT EXISTS idx_ai_suggestions_case_id ON ai_suggestions(case_id)
 """
 
 # Process-wide shared connection (opened in lifespan)
-_db: Optional[aiosqlite.Connection] = None
+_db: aiosqlite.Connection | None = None
 
 
 def _ensure_dir() -> None:
@@ -117,7 +118,7 @@ async def _configure_connection(db: aiosqlite.Connection) -> None:
     await db.execute("PRAGMA mmap_size=268435456")  # 256 MiB hint; ignored if unsupported
 
 
-def row_to_dict(row: Optional[aiosqlite.Row | sqlite3.Row]) -> Optional[dict[str, Any]]:
+def row_to_dict(row: aiosqlite.Row | sqlite3.Row | None) -> dict[str, Any] | None:
     if row is None:
         return None
     return dict(row)

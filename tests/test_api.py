@@ -1,12 +1,11 @@
 import os
 
-import pytest
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("API_KEY", "test-api-key")
 
-from app.main import app
 import app.security as security_mod
+from app.main import app
 
 security_mod.API_KEY = "test-api-key"
 

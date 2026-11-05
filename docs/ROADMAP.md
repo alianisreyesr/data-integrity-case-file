@@ -19,7 +19,10 @@
 ## Phase 3 — Hardening
 - [x] Tests · CI · Docker
 - [x] API key, rate limits, security headers
-- [ ] Coverage gate published in CI
+- [x] Coverage gate in CI (85 %)
+- [x] Lint (ruff), type-check (mypy) and dependency audit in CI
+- [x] Frontend unit tests (vitest)
+- [x] Pinned Ollama image tag and reproducible `npm ci` installs
 - [ ] Production IAM / e-signatures (explicitly out of scope for this prototype)
 
 ## Ethics
