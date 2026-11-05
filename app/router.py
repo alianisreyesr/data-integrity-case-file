@@ -41,6 +41,14 @@ from .models import (
 router = APIRouter()
 
 
+def actor_header(x_actor: str = Header(...)) -> str:
+    """Validate X-Actor (2-80 chars after trimming) before it reaches the audit log."""
+    value = x_actor.strip()
+    if not (2 <= len(value) <= 80):
+        raise HTTPException(422, "X-Actor header must be 2-80 characters after trimming.")
+    return value
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -131,7 +139,7 @@ async def list_cases(
 @router.post("/cases", response_model=CaseOut, status_code=201)
 async def create_case(
     body: CaseCreate,
-    x_actor: str = Header(...),
+    x_actor: str = Depends(actor_header),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     ref = _ref("DI")
@@ -159,7 +167,7 @@ async def get_case(case_id: int, db: aiosqlite.Connection = Depends(get_db)):
 async def update_case_status(
     case_id: int,
     body: CaseStatusUpdate,
-    x_actor: str = Header(...),
+    x_actor: str = Depends(actor_header),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     row = await _require_case(db, case_id)
@@ -194,7 +202,7 @@ async def update_case_status(
 @router.post("/cases/{case_id}/close", response_model=CaseOut)
 async def close_case(
     case_id: int,
-    x_actor: str = Header(...),
+    x_actor: str = Depends(actor_header),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     return await update_case_status(
@@ -216,17 +224,16 @@ async def list_gaps(case_id: int, db: aiosqlite.Connection = Depends(get_db)):
 async def add_gap(
     case_id: int,
     body: AlcoaGapCreate,
-    x_actor: str = Header(...),
+    x_actor: str = Depends(actor_header),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     await _require_open_case(db, case_id)
     now = _now()
-    await db.execute(
+    cursor = await db.execute(
         "INSERT INTO alcoa_gaps (case_id,attribute,gap_found,observation,assessed_by,assessed_at) VALUES (?,?,?,?,?,?)",
         (case_id, body.attribute, int(body.gap_found), body.observation, body.assessed_by, now),
     )
-    async with db.execute("SELECT last_insert_rowid()") as cur:
-        gap_id = (await cur.fetchone())[0]
+    gap_id = cursor.lastrowid
     await _audit(
         db, x_actor, "alcoa_gap_recorded", case_id,
         f"attribute={body.attribute} gap={body.gap_found}",
@@ -251,17 +258,16 @@ async def list_evidence(case_id: int, db: aiosqlite.Connection = Depends(get_db)
 async def add_evidence(
     case_id: int,
     body: EvidenceCreate,
-    x_actor: str = Header(...),
+    x_actor: str = Depends(actor_header),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     await _require_open_case(db, case_id)
     now = _now()
-    await db.execute(
+    cursor = await db.execute(
         "INSERT INTO evidence_log (case_id,evidence_type,description,recorded_by,recorded_at) VALUES (?,?,?,?,?)",
         (case_id, body.evidence_type, body.description, body.recorded_by, now),
     )
-    async with db.execute("SELECT last_insert_rowid()") as cur:
-        eid = (await cur.fetchone())[0]
+    eid = cursor.lastrowid
     await _audit(db, x_actor, "evidence_recorded", case_id, f"type={body.evidence_type}")
     await db.commit()
     async with db.execute("SELECT * FROM evidence_log WHERE id=?", (eid,)) as cur:
@@ -283,18 +289,17 @@ async def list_capas(case_id: int, db: aiosqlite.Connection = Depends(get_db)):
 async def add_capa(
     case_id: int,
     body: CapaCreate,
-    x_actor: str = Header(...),
+    x_actor: str = Depends(actor_header),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     await _require_open_case(db, case_id)
     ref = _ref("CAPA")
     now = _now()
-    await db.execute(
+    cursor = await db.execute(
         "INSERT INTO capas (case_id,capa_ref,action_type,description,owner,due_date,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
         (case_id, ref, body.action_type, body.description, body.owner, body.due_date, "open", now),
     )
-    async with db.execute("SELECT last_insert_rowid()") as cur:
-        cid = (await cur.fetchone())[0]
+    cid = cursor.lastrowid
     await _audit(db, x_actor, "capa_created", case_id, f"ref={ref} type={body.action_type}")
     await db.commit()
     async with db.execute("SELECT * FROM capas WHERE id=?", (cid,)) as cur:
@@ -307,7 +312,7 @@ async def update_capa_status(
     case_id: int,
     capa_id: int,
     body: CapaStatusUpdate,
-    x_actor: str = Header(...),
+    x_actor: str = Depends(actor_header),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     await _require_open_case(db, case_id)
@@ -383,7 +388,7 @@ def _serialize_ai_suggestion(row) -> dict:
 @router.post("/cases/{case_id}/ai-suggest-gaps", response_model=AiSuggestionOut, status_code=201)
 async def ai_suggest_gaps(
     case_id: int,
-    x_actor: str = Header(...),
+    x_actor: str = Depends(actor_header),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     case_row = await _require_open_case(db, case_id)
@@ -396,7 +401,7 @@ async def ai_suggest_gaps(
     payload = result.model_dump()
     response_hash = hash_response(payload)
     now = _now()
-    await db.execute(
+    cursor = await db.execute(
         """
         INSERT INTO ai_suggestions
         (case_id, model_name, model_provider, prompt_version, response_json, response_hash, generated_at)
@@ -404,8 +409,7 @@ async def ai_suggest_gaps(
         """,
         (case_id, OLLAMA_MODEL, "local_ollama", PROMPT_VERSION, json.dumps(payload), response_hash, now),
     )
-    async with db.execute("SELECT last_insert_rowid()") as cur:
-        suggestion_id = (await cur.fetchone())[0]
+    suggestion_id = cursor.lastrowid
     await _audit(
         db, x_actor, "ai_suggestion_generated", case_id,
         f"model={OLLAMA_MODEL} hash={response_hash[:12]}",
@@ -430,7 +434,7 @@ async def list_ai_suggestions(case_id: int, db: aiosqlite.Connection = Depends(g
 async def review_ai_suggestion(
     suggestion_id: int,
     body: AiSuggestionReviewCreate,
-    x_actor: str = Header(...),
+    x_actor: str = Depends(actor_header),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     """Record a human review decision on an AI suggestion.
@@ -476,13 +480,12 @@ async def review_ai_suggestion(
                 f"AI-suggested ({item['risk_level']} risk, accepted by reviewer): "
                 f"{item['rationale']}"
             )
-            await db.execute(
+            cursor = await db.execute(
                 "INSERT INTO alcoa_gaps (case_id,attribute,gap_found,observation,assessed_by,assessed_at) "
                 "VALUES (?,?,?,?,?,?)",
                 (row["case_id"], item["attribute"], 1, observation, body.reviewed_by, now),
             )
-            async with db.execute("SELECT last_insert_rowid()") as cur:
-                gap_id = (await cur.fetchone())[0]
+            gap_id = cursor.lastrowid
             async with db.execute("SELECT * FROM alcoa_gaps WHERE id=?", (gap_id,)) as cur:
                 gaps_recorded.append(dict(await cur.fetchone()))
 

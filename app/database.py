@@ -146,7 +146,14 @@ async def get_db() -> AsyncIterator[aiosqlite.Connection]:
     if _db is None:
         await connect()
     assert _db is not None
-    yield _db
+    try:
+        yield _db
+    except BaseException:
+        # The connection is shared by all requests: discard any uncommitted
+        # writes of a failed request so the next request's commit() cannot
+        # persist them.
+        await _db.rollback()
+        raise
 
 
 async def init_db() -> None:

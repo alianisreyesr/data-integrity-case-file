@@ -8,7 +8,8 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=llama3.2:3b
       - OLLAMA_TIMEOUT_SECONDS=180
-      - API_KEY=${API_KEY:-dev-api-key-change-me}
+      - ENVIRONMENT=production
+      - API_KEY=${API_KEY:?Set API_KEY to a private value (see README)}
       - RATE_LIMIT_DEFAULT=${RATE_LIMIT_DEFAULT:-120}
       - RATE_LIMIT_WINDOW_SECONDS=${RATE_LIMIT_WINDOW_SECONDS:-60}
       - RATE_LIMIT_AI=${RATE_LIMIT_AI:-10}
@@ -23,8 +24,8 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        VITE_API_KEY: ${API_KEY:-dev-api-key-change-me}
+    environment:
+      - API_KEY=${API_KEY:?Set API_KEY to a private value (see README)}
     ports:
       - "8080:80"
     depends_on:

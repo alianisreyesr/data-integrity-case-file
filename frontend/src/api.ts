@@ -17,11 +17,14 @@ import { UserFacingError, messageForApiFailure } from "./errors";
 
 const BASE = "/api";
 
-/** API key for the local demo. Override with VITE_API_KEY at build/dev time. */
+/**
+ * Optional API key for local `vite dev` only (VITE_API_KEY). Production builds
+ * must not embed a key: the nginx proxy in frontend/Dockerfile adds X-API-Key.
+ */
 const API_KEY =
   (typeof import.meta !== "undefined" &&
     (import.meta as { env?: { VITE_API_KEY?: string } }).env?.VITE_API_KEY) ||
-  "dev-api-key-change-me";
+  "";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
@@ -31,7 +34,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options,
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": API_KEY,
+        ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
         ...(options.headers || {}),
       },
     });

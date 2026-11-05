@@ -20,8 +20,22 @@ from starlette.responses import JSONResponse, Response
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
-API_KEY = os.getenv("API_KEY", "dev-api-key-change-me")
+DEFAULT_API_KEY = "dev-api-key-change-me"
+API_KEY = os.getenv("API_KEY", DEFAULT_API_KEY)
 API_KEY_HEADER = "X-API-Key"
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+DEV_ENVIRONMENTS = frozenset({"dev", "development", "test", "testing", "local"})
+
+
+def ensure_api_key_configured(api_key: Optional[str] = None, environment: Optional[str] = None) -> None:
+    """Refuse to start with the public default key outside development."""
+    key = API_KEY if api_key is None else api_key
+    env = (ENVIRONMENT if environment is None else environment).strip().lower()
+    if env not in DEV_ENVIRONMENTS and (not key or key == DEFAULT_API_KEY):
+        raise RuntimeError(
+            f"API_KEY must be set to a private value when ENVIRONMENT is '{env}' "
+            "(the built-in default is only allowed in development)."
+        )
 
 RATE_LIMIT_DEFAULT = int(os.getenv("RATE_LIMIT_DEFAULT", "120"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))

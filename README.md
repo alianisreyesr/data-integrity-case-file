@@ -59,7 +59,7 @@ This is **not** production IAM. Controls are intentional for a portfolio prototy
 | Control | Behavior |
 |---------|----------|
 | **API key** | Header `X-API-Key` required on all routes except `/health`, `/docs`, `/redoc`, `/openapi.json` |
-| **Default key** | `dev-api-key-change-me` — override with env `API_KEY` |
+| **Default key** | `dev-api-key-change-me` is accepted only when `ENVIRONMENT` is development (the default for local runs); Docker Compose requires a private `API_KEY` and the API refuses to start with the default otherwise. The key is never baked into the JS bundle: the frontend nginx adds it when proxying `/api`. |
 | **Rate limit** | 120 req/min per client (default); AI suggest endpoint 10 req/min |
 | **Security headers** | `X-Frame-Options`, `X-Content-Type-Options`, CSP, `Referrer-Policy` |
 | **CORS** | Allowlist: `localhost:5173` / `127.0.0.1:5173` |
@@ -90,8 +90,8 @@ Env vars (API / Compose): `API_KEY`, `RATE_LIMIT_DEFAULT`, `RATE_LIMIT_WINDOW_SE
 git clone https://github.com/alianisreyesr/data-integrity-case-file.git
 cd data-integrity-case-file
 
-# 2. Optional: set a non-default API key
-export API_KEY=dev-api-key-change-me
+# 2. Required: set a private API key (the default key is rejected under Compose)
+export API_KEY=$(openssl rand -hex 24)
 
 # 3. Start all services (API + frontend + Ollama)
 docker compose up --build

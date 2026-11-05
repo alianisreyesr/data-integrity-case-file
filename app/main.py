@@ -6,11 +6,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from .ai_status import router as ai_status_router
 from .database import disconnect, init_db
 from .router import router
-from .security import ApiKeyMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
+from .security import (
+    ApiKeyMiddleware,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    ensure_api_key_configured,
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_api_key_configured()
     await init_db()  # schema + open shared connection
     try:
         yield
