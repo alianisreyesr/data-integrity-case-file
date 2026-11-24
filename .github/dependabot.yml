@@ -1,6 +1,7 @@
 # Dependabot: automated dependency update PRs
 # Monthly cadence; minor/patch updates are grouped into one PR per ecosystem.
 # Major-version bumps stay as individual PRs so they can be reviewed on their own.
+# `cooldown` skips releases younger than 7 days to avoid chasing every new release.
 version: 2
 updates:
   - package-ecosystem: "pip"
@@ -21,6 +22,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "pytest-asyncio"
         update-types: ["version-update:semver-major"]
+    cooldown:
+      default-days: 7
     groups:
       minor-and-patch:
         update-types:
@@ -51,6 +54,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
+    cooldown:
+      default-days: 7
     groups:
       minor-and-patch:
         update-types:
@@ -70,6 +75,8 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
+    cooldown:
+      default-days: 7
     groups:
       github-actions:
         patterns:
