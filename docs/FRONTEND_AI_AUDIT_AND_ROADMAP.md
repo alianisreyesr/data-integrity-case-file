@@ -27,7 +27,7 @@ suggestion workflow.
 4. **Accessible foundation.** The frontend uses semantic landmarks, keyboard-operable
    case selection, visible focus treatment, table headers and captions, fieldsets,
    and status and error announcements.
-5. **Recruiter-ready architecture.** The project is an end-to-end containerized
+5. **Review-ready architecture.** The project is an end-to-end containerized
    application rather than an isolated model demo.
 
 ## Audit Findings and Priorities
