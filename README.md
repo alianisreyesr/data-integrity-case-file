@@ -15,7 +15,7 @@
 
 **ALCOA+ · Data Integrity · Investigation · CAPA Readiness · Audit Evidence · Local AI Triage**
 
-*Portfolio-safe prototype — synthetic data only*
+*ALCOA+ gap analysis, evidence linking and CAPA readiness for data integrity investigations — prototype (synthetic data only)*
 
 [Screenshots](#portfolio-preview) · [Quick start](#quick-start) · [Case study](docs/CASE_STUDY.md) · [Investigation playbook](docs/INVESTIGATION_PLAYBOOK.md) · [AI Assistant](docs/AI_ASSISTANT.md) · [Security](SECURITY.md)
 
