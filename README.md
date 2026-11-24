@@ -242,7 +242,7 @@ pytest tests/ --cov=app --cov-report=term-missing
 
 <div align="center">
 
-Built by [Alianis Reyes-Reyes](https://github.com/alianisreyesr) · [LinkedIn](https://www.linkedin.com/in/alianis-reyes-reyes/) · [Portfolio](https://poplme.co/hash/aJvjFE0Z/1/es)
+Built by [Alianis Reyes Reyes](https://github.com/alianisreyesr) · [LinkedIn](https://www.linkedin.com/in/alianis-reyes-reyes/) · [Portfolio](https://poplme.co/hash/aJvjFE0Z/1/es)
 
 Information Systems @ UPRM · Eli Lilly Tech@Lilly Alumni
 
